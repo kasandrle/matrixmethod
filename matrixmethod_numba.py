@@ -63,10 +63,69 @@ and the transmission coefficient is:
 
 """
 
+import cmath
+import math
 import numpy as np
 import scipy as sp
 
+import numba
 
+
+@numba.jit(nopython=True, cache=True)
+def p_m(k_z, l):
+    """matrix elements of the refraction matrices
+    p[j] is p_{j, j+1}
+    p_{j, j+1} = k_{z, j} + k_{z, j+1} / (2 * k_{z, j})  for all j=0..N-1
+    """
+    p = k_z[l] + k_z[l+1]
+    m = k_z[l] - k_z[l+1]
+    o = 2 * k_z[l+1]
+    return p/o, m/o
+
+
+@numba.jit(nopython=True, cache=True)
+def reflec_and_trans_inner(k2n2, k2, theta, thick):
+    # wavevectors in the different layers
+    k2_x = k2 * math.cos(theta)**2  # k_x is conserved due to snell's law
+    k_z = -np.sqrt(k2n2 - k2_x)  # k_z is different for each layer.
+
+    # the transfer matrix MM is obtained as
+    # \RR_{0, 1} \prod_{j=1}^N-1 \TT_{j} \RR_{j, j+1}
+    # with
+    # \RR{j, j+1} = ((p_{j, j+1}, m_{j, j+1}), (m_{j, j+1}, p_{j, j+1}))
+    #             = ((pj, mj), (mj, pj))
+    # and
+    # \TT{j} = ((exp(-w_j), 0), (0, exp(w_j))
+    # so MM * \TT_j * RR_j is (using wm=exp(-w_j), wp=exp(w_j))
+    # ((M11*pj*wm + M12*mj*wp, M11*mj*wm + M12*pj*wp),
+    #  (M21*pj*wm + M22*mj*wp, M21*mj*wm + M22*pj*wp))
+    p0, m0 = p_m(k_z, 0)
+    M11 = p0
+    M12 = m0
+    M21 = m0
+    M22 = p0
+    for l in range(len(thick)):
+        pl, ml = p_m(k_z, l+1)
+        wl = 1.j * k_z[l+1] * thick[l]
+        wm = cmath.exp(-wl)
+        wp = cmath.exp(wl)
+        plwm = pl*wm
+        plwp = pl*wp
+        mlwm = ml*wm
+        mlwp = ml*wp
+        M11, M12 = M11*plwm + M12*mlwp, M11*mlwm + M12*plwp
+        M21, M22 = M21*plwm + M22*mlwp, M21*mlwm + M22*plwp
+
+    # reflection coefficient
+    r = M12 / M22
+
+    # transmission coefficient
+    t = 1 / M22
+
+    return r, t
+
+
+@numba.jit(nopython=True, cache=True)
 def reflec_and_trans(n, lam, thetas, thick):
     """Calculate the reflection coefficient and the transmission coefficient for a stack of N layers, with the incident
     wave coming from layer 0, which is reflected into layer 0 and transmitted into layer N.
@@ -78,63 +137,24 @@ def reflec_and_trans(n, lam, thetas, thick):
     :param thick: thicknesses in nm, len(thick) = N-2, since layer 0 and layer N are assumed infinite
     :return: (reflec, trans)
     """
-    if isinstance(thetas, float):
-        thetas = [thetas]
+    k2 = (2 * math.pi / lam)**2  # k is conserved
+    k2n2 = k2 * n**2
     rs = []
     ts = []
-    for theta in thetas:
-        # wavevectors in the different layers
-        k = 2 * np.pi / lam  # k is conserved
-        k_x = k * np.cos(theta)  # k_x is conserved due to snell's law
-        k_z = -np.sqrt((k**2 * n**2) - k_x**2)  # k_z is different for each layer.
-
-        # matrix elements of the refraction matrices
-        # p[j] is p_{j, j+1}
-        # p_1{j, j+1} = k_{z, j} + k_{z, j+1} / (2 * k_{z, j})  for all j=0..N-1
-        p = (k_z[:-1] + k_z[1:]) / (2 * k_z[:-1])
-        m = (k_z[:-1] - k_z[1:]) / (2 * k_z[:-1])
-
-        RR = [np.matrix([[p[i], m[i]],
-                         [m[i], p[i]]]) for i in range(len(p))]
-
-        # matrix elements of the translation matrices
-        w = 1j * k_z[1:-1] * thick
-        TT = [np.matrix([[np.exp(-v), 0],
-                         [0, np.exp(v)]]) for v in w]
-
-        # the transfer matrix is obtained as
-        # \RR_{0, 1} \prod_{j=1}^N-1 \TT_{j} \RR_{j, j+1}
-        # with
-        # \RR{j, j+1} = RR[j]
-        # and
-        # \TT{j} = T[j-1]
-        MM = RR[0].copy()
-        for R, T in zip(RR[1:], TT):
-            MM *= T
-            MM *= R
-
-        # reflection coefficient
-        r = MM[0, 1] / MM[1, 1]
-
-        # transmission coefficient
-        t = 1 / MM[1, 1]
-
+    for i, theta in enumerate(thetas):
+        r, t = reflec_and_trans_inner(k2n2, k2, theta, thick)
         rs.append(r)
         ts.append(t)
     return rs, ts
 
 
-
-
-
-
 if __name__ == '__main__':
-    n = np.array([1, 1-1e-5+1e-6j, 1-2e-5+2e-6j])
-    thick = np.array([100.])
+    n = np.array([1] + [1-1e-5+1e-6j]*100 + [1-2e-5+2e-6j])
+    thick = np.array([1.]*100)
     wl = 0.15
     ang_deg = np.linspace(0, 1, 10001)[1:]
     ang = np.deg2rad(ang_deg)
-    reflec_and_trans(n, wl, ang, thick)
+    r, t = reflec_and_trans(n, wl, ang, thick)
     pass
 
 

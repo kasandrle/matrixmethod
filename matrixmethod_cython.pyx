@@ -63,11 +63,11 @@ and the transmission coefficient is:
 
 """
 
+cimport numpy as np
 import numpy as np
-import scipy as sp
 
 
-def reflec_and_trans(n, lam, thetas, thick):
+def reflec_and_trans(np.ndarray[complex] n, double lam, double[:] thetas, np.ndarray[double] thick):
     """Calculate the reflection coefficient and the transmission coefficient for a stack of N layers, with the incident
     wave coming from layer 0, which is reflected into layer 0 and transmitted into layer N.
     Note that N=len(n) is the total number of layers, including the substrate. That is the only point where the notation
@@ -78,8 +78,7 @@ def reflec_and_trans(n, lam, thetas, thick):
     :param thick: thicknesses in nm, len(thick) = N-2, since layer 0 and layer N are assumed infinite
     :return: (reflec, trans)
     """
-    if isinstance(thetas, float):
-        thetas = [thetas]
+    cdef double theta
     rs = []
     ts = []
     for theta in thetas:
@@ -122,34 +121,5 @@ def reflec_and_trans(n, lam, thetas, thick):
         rs.append(r)
         ts.append(t)
     return rs, ts
-
-
-
-
-
-
-if __name__ == '__main__':
-    n = np.array([1, 1-1e-5+1e-6j, 1-2e-5+2e-6j])
-    thick = np.array([100.])
-    wl = 0.15
-    ang_deg = np.linspace(0, 1, 10001)[1:]
-    ang = np.deg2rad(ang_deg)
-    reflec_and_trans(n, wl, ang, thick)
-    pass
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
