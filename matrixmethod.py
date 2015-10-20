@@ -67,7 +67,7 @@ import numpy as np
 import scipy as sp
 
 
-def reflec_and_trans(n, lam, thetas, thick):
+def reflec_and_trans(n, lam, thetas, thick, rough):
     """Calculate the reflection coefficient and the transmission coefficient for a stack of N layers, with the incident
     wave coming from layer 0, which is reflected into layer 0 and transmitted into layer N.
     Note that N=len(n) is the total number of layers, including the substrate. That is the only point where the notation
@@ -76,6 +76,7 @@ def reflec_and_trans(n, lam, thetas, thick):
     :param lam: x-ray wavelength in nm
     :param theta: incident angle in rad
     :param thick: thicknesses in nm, len(thick) = N-2, since layer 0 and layer N are assumed infinite
+    :param rough: rms roughness in nm, len(rough) = N-1 (number of interfaces)
     :return: (reflec, trans)
     """
     if isinstance(thetas, float):
@@ -91,8 +92,11 @@ def reflec_and_trans(n, lam, thetas, thick):
         # matrix elements of the refraction matrices
         # p[j] is p_{j, j+1}
         # p_1{j, j+1} = k_{z, j} + k_{z, j+1} / (2 * k_{z, j})  for all j=0..N-1
-        p = (k_z[:-1] + k_z[1:]) / (2 * k_z[:-1])
-        m = (k_z[:-1] - k_z[1:]) / (2 * k_z[:-1])
+        # roughness (debye-waller factors, see p 112 of Gibaud/Vignaud)
+        # rp = exp(-(k_{z,j+1} - k_{z,j})**2 sigma_j**2/2)
+        # rm = exp(-(k_{z,j+1} + k_{z,j})**2 sigma_j**2/2)
+        p = (k_z[:-1] + k_z[1:]) / (2 * k_z[:-1]) * np.exp(-(k_z[:-1] - k_z[1:])**2 * rough**2 / 2)
+        m = (k_z[:-1] - k_z[1:]) / (2 * k_z[:-1]) * np.exp(-(k_z[:-1] + k_z[1:])**2 * rough**2 / 2)
 
         RR = [np.matrix([[p[i], m[i]],
                          [m[i], p[i]]]) for i in range(len(p))]
