@@ -86,6 +86,7 @@ def p_m(k_z, l, s2h):
     o = 2 * k_z[l]
     return p*rp/o, m*rm/o
 
+
 @numba.jit(nopython=True, cache=True)
 def reflec_and_trans_inner(k2n2, k2, theta, thick, s2h):
     # wavevectors in the different layers
@@ -120,6 +121,32 @@ def reflec_and_trans_inner(k2n2, k2, theta, thick, s2h):
     t = 1 / mm22
 
     return r, t
+
+
+@numba.jit(nopython=True, cache=True)
+def reflec_and_trans(n, lam, thetas, thick, rough):
+    """Calculate the reflection coefficient and the transmission coefficient for a stack of N layers, with the incident
+    wave coming from layer 0, which is reflected into layer 0 and transmitted into layer N.
+    Note that N=len(n) is the total number of layers, including the substrate. That is the only point where the notation
+    differs from Gibaud & Vignaud.
+    :param n: vector of refractive indices n = 1 - \delta - i \beta of all layers, so n[0] is usually 1.
+    :param lam: x-ray wavelength in nm
+    :param theta: incident angle in rad
+    :param thick: thicknesses in nm, len(thick) = N-2, since layer 0 and layer N are assumed infinite
+    :param rough: rms roughness in nm, len(rough) = N-1 (number of interfaces)
+    :return: (reflec, trans)
+    """
+    k2 = (2 * math.pi / lam)**2  # k is conserved
+    k2n2 = k2 * n**2
+    s2h = rough**2 / 2
+    rs = []
+    ts = []
+    for theta in thetas:
+        r, t = reflec_and_trans_inner(k2n2, k2, theta, thick, s2h)
+        rs.append(r)
+        ts.append(t)
+    return rs, ts
+
 
 @numba.jit(nopython=True, cache=True)
 def fields_inner(k2n2, k2, theta, thick, s2h):
@@ -167,38 +194,12 @@ def fields_inner(k2n2, k2, theta, thick, s2h):
     fields_r[0] = r  # in the vacuum layer
     for l in range(N):
         j = l + 1  # j = 1 .. N
-        fields_t[j] = mm22[l] * t
-        fields_r[j] = mm12[l] * t
+        fields_t[j] = mm22[j] * t
+        fields_r[j] = mm12[j] * t
     fields_t[N+1] = t  # in the substrate
     fields_r[N+1] = 0
 
     return fields_r, fields_t
-
-
-
-@numba.jit(nopython=True, cache=True)
-def reflec_and_trans(n, lam, thetas, thick, rough):
-    """Calculate the reflection coefficient and the transmission coefficient for a stack of N layers, with the incident
-    wave coming from layer 0, which is reflected into layer 0 and transmitted into layer N.
-    Note that N=len(n) is the total number of layers, including the substrate. That is the only point where the notation
-    differs from Gibaud & Vignaud.
-    :param n: vector of refractive indices n = 1 - \delta - i \beta of all layers, so n[0] is usually 1.
-    :param lam: x-ray wavelength in nm
-    :param theta: incident angle in rad
-    :param thick: thicknesses in nm, len(thick) = N-2, since layer 0 and layer N are assumed infinite
-    :param rough: rms roughness in nm, len(rough) = N-1 (number of interfaces)
-    :return: (reflec, trans)
-    """
-    k2 = (2 * math.pi / lam)**2  # k is conserved
-    k2n2 = k2 * n**2
-    s2h = rough**2 / 2
-    rs = []
-    ts = []
-    for theta in thetas:
-        r, t = reflec_and_trans_inner(k2n2, k2, theta, thick, s2h)
-        rs.append(r)
-        ts.append(t)
-    return rs, ts
 
 
 #@numba.jit(nopython=True, cache=True)
@@ -226,8 +227,143 @@ def fields(n, lam, thetas, thick, rough):
     return rs, ts
 
 
+@numba.jit(nopython=True, cache=True)
+def fields_positions_inner(thick, s2h, kt, rs, ts, mm11, mm12, mm21, mm22, N, k_z):
+    pS, mS = p_m(k_z[kt], N, s2h)
+    # entries of the transition matrix MM
+    # mm11, mm12, mm21, mm22
+    # RR over interface to substrate
+    mm11[N] = pS
+    mm12[N] = mS
+    mm21[N] = mS
+    mm22[N] = pS
+    for l in range(N):
+        j = N - l - 1  # j = N-1 .. 0
+        # transition through layer j
+        uj = 1j * k_z[kt][j+1] * thick[j]
+        vj = cmath.exp(-uj)
+        wj = cmath.exp(+uj)
+        # transition through interface between j-1 an j
+        pj, mj = p_m(k_z[kt], j, s2h)
+        m11 = pj * vj
+        m12 = mj * wj
+        m21 = mj * vj
+        m22 = pj * wj
+
+        mm11[j] = m11*mm11[j+1] + m12*mm21[j+1]
+        mm12[j] = m11*mm12[j+1] + m12*mm22[j+1]
+        mm21[j] = m21*mm11[j+1] + m22*mm21[j+1]
+        mm22[j] = m21*mm12[j+1] + m22*mm22[j+1]
+
+    # reflection coefficient
+    r = mm12[0] / mm22[0]
+
+    # transmission coefficient
+    t = 1 / mm22[0]
+
+    ts[kt][0] = 1  # in the vacuum layer
+    rs[kt][0] = r  # in the vacuum layer
+    for l in range(N):
+        j = l + 1  # j = 1 .. N
+        ts[kt][j] = mm22[j] * t
+        rs[kt][j] = mm12[j] * t
+    ts[kt][N+1] = t  # in the substrate
+    rs[kt][N+1] = 0
+
+
+@numba.jit(nopython=True, cache=True)
+def fields_positions_inner_positions(kp, pos, Z, pos_rs, pos_ts, k_z, ts, rs, T):
+    # MM_j * (0, t) is the field at the interface between the layer j and the layer j+1.
+    # thus, if pos is within layer j, we need to use the translation matrix
+    # TT = exp(-ik_{z,j} h), 0 \\ 0, exp(ik_{z,j} h)
+    # with h the distance between the interface between the layer j and the layer j+1 (the "bottom" interface if
+    # the vacuum is at the top and the z-axis is pointing upwards) and pos.
+
+    # first find out within which layer pos lies
+    for j, zj in enumerate(Z):  # checking from the top
+        if pos > zj:
+            break
+    else:  # within the substrate
+        # need to special-case the substrate since we have to propagate "down" from the substrate interface
+        # all other cases are propagated "up" from their respective interfaces
+        dist_j = 1j * (pos - Z[-1])  # common for all thetas: distance from interface to evaluation_position
+        for ko in range(T):  # iterate through all thetas
+            pos_rs[ko][kp] = 0.
+            pos_ts[ko][kp] = ts[ko][-1] * cmath.exp(k_z[ko][-1] * dist_j)
+        return
+
+    # now zj = Z[j] is the layer in which pos lies
+    dist_j = 1j * (pos - zj)  # common for all thetas: distance from interface to evaluation_position
+    for ko in range(T):
+        # now propagate the fields through the layer
+        uj = k_z[ko][j] * dist_j
+
+        # fields at position
+        pos_ts[ko][kp] = ts[ko][j] * cmath.exp(+uj)
+        pos_rs[ko][kp] = rs[ko][j] * cmath.exp(-uj)
+
+
+@numba.jit(nopython=True, cache=True)
+def fields_positions(n, lam, thetas, thick, rough, evaluation_positions):
+    """Calculate the electric field intensities in a stack of N layers, with the incident
+    wave coming from layer 0, which is reflected into layer 0 and transmitted into layer N.
+    Note that N=len(n) is the total number of layers, including the substrate. That is the only point where the notation
+    differs from Gibaud & Vignaud.
+    :param n: vector of refractive indices n = 1 - \delta - i \beta of all layers, so n[0] is usually 1.
+    :param lam: x-ray wavelength in nm
+    :param theta: incident angle in rad
+    :param thick: thicknesses in nm, len(thick) = N-2, since layer 0 and layer N are assumed infinite
+    :param rough: rms roughness in nm, len(rough) = N-1 (number of interfaces)
+    :param evaluation_positions: positions (in nm) at which the electric field should be evaluated. Given in distance
+           from the surface, with the axis poiting away from the layer (i.e. negative positions are within the stack)
+    :return: (reflec, trans)
+    """
+    N = len(thick)
+    T = len(thetas)
+    P = len(evaluation_positions)
+
+    # wavevectors in the different layers
+    k2 = (2 * math.pi / lam)**2  # k is conserved
+    k2n2 = k2 * n**2
+    s2h = rough**2 / 2
+    k2_x = k2 * np.cos(thetas)**2  # k_x is conserved due to snell's law, i.e. only dependent on theta
+    k_z = np.empty((T, N+2), dtype=np.complex128)
+    for kt in range(T):
+        for kl in range(N+2):
+            k_z[kt][kl] = -np.sqrt(k2n2[kl] - k2_x[kt])  # k_z is different for each layer.
+
+    # calculate absolute interface positions from thicknesses
+    Z = np.empty(N + 1, dtype=np.float64)
+    Z[0] = 0.
+    cs = -np.cumsum(thick)
+    for i in range(0, N):
+        Z[i+1] = cs[i]
+
+    # preallocate temporary arrays
+    mm11 = np.empty(N + 1, dtype=np.complex128)
+    mm12 = np.empty(N + 1, dtype=np.complex128)
+    mm21 = np.empty(N + 1, dtype=np.complex128)
+    mm22 = np.empty(N + 1, dtype=np.complex128)
+    # preallocate whole result arrays
+    rs = np.empty((T, N+2), dtype=np.complex128)
+    ts = np.empty((T, N+2), dtype=np.complex128)
+    pos_rs = np.empty((T, P), dtype=np.complex128)
+    pos_ts = np.empty((T, P), dtype=np.complex128)
+
+    # first calculate the fields at the interfaces
+    for kt in range(T):
+        fields_positions_inner(thick, s2h, kt, rs, ts, mm11, mm12, mm21, mm22, N, k_z)
+
+    # now calculate the fields at the given evaluation positions
+    for kp, pos in enumerate(evaluation_positions):
+        fields_positions_inner_positions(kp, pos, Z, pos_rs, pos_ts, k_z, ts, rs, T)
+
+    return rs, ts, pos_rs, pos_ts
+
+
+
 if __name__ == '__main__':
-    _n = np.array([1] + [1-1e-5+1e-6j]*10 + [1-2e-5+2e-6j] + [0.99])
+    _n = np.array([1] + [1-1e-5+1e-6j]*10 + [1-2e-5+2e-6j] + [1])
     _rough = np.array([.2]*12)
     _thick = np.array([1.]*11)
     _wl = 0.15
