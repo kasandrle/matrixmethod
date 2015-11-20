@@ -14,23 +14,21 @@ import xray_compounds as xc
 import pint
 u = pint.UnitRegistry()
 
-from matrixmethod_numba import fields_positions
+import numba
+
+from matrixmethod_numba import fields_positions_fields, fields_positions_positions
 
 #energy = 3000 * u.eV
 
-n = np.array([1,
-              1.5,
-              1,
-              1.5,
-              1])
-rough = np.array([50, 50, 50, 50])
-thick = np.array([50000., 50000., 50000.])  # nm
+n = np.array([1, 1.5]*65)
+rough = np.array([50.]*(65*2-1))
+thick = np.array([50000.]*(65*2-2))  # nm
 wl = 1050  # nm
-ang_deg = np.linspace(0, 20, 2001)[1:]
+ang_deg = np.linspace(0, 90, 90001)[1:]
 ang = np.deg2rad(ang_deg)
 positions = np.linspace(50000, -200000, 25001)
 
-fr, ft, posr, post = fields_positions(n, wl, ang, thick, rough, positions)
+fr, ft, k_z, Z = fields_positions_fields(n, wl, ang, thick, rough)
 
 app = QtGui.QApplication([])
 
@@ -65,8 +63,8 @@ xrr_plot.addItem(theta_line)
 #xrr_plot.setYRange(1, 1e-6, padding=0)
 
 # plot
-abs = field_plot.plot(-positions, np.abs(post[-1] + posr[-1]), pen=(0, 0, 0), name='abs')
-real = field_plot.plot(-positions, np.real(post[-1] + posr[-1]), pen=(255, 0, 0), name='Re')
+abs = field_plot.plot(-positions, np.zeros_like(positions), pen=(0, 0, 0), name='abs')
+real = field_plot.plot(-positions, np.zeros_like(positions), pen=(255, 0, 0), name='Re')
 field_plot.enableAutoRange('xy', False)
 field_plot.setYRange(-2, 2)
 #field_plot.showGrid(x=True, y=True)
@@ -76,19 +74,24 @@ field_plot.addItem(pg.InfiniteLine(thick[:2].sum(), pen=(128, 128, 0)))
 field_plot.addItem(pg.InfiniteLine(thick[:3].sum(), pen=(128, 128, 0)))
 
 
+@numba.jit(cache=True)
 def replot(pos):
-    theta_text.setText(theta_text_fmt.format(ang_deg[pos]))
-    abs.setData(-positions, np.abs(post[pos] + posr[pos]))
-    real.setData(-positions, np.real(post[pos] + posr[pos]))
+    post, posr = fields_positions_positions(positions, fr[pos], ft[pos], k_z[pos], Z)
+    abs.setData(-positions, np.abs(post + posr))
+    real.setData(-positions, np.real(post + posr))
     theta_line.setValue(ang_deg[pos])
+
 
 def line(l):
     val = l.value()
     pos = np.abs(ang_deg - val).argmin()
+    theta_text.setText(theta_text_fmt.format(ang_deg[pos]))
     replot(pos)
 
 theta_line.sigDragged.connect(line)
 
+replot(-1)
+theta_text.setText(theta_text_fmt.format(ang_deg[-1]))
 
 
 ## Display the widget as a new window

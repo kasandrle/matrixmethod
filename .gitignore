@@ -1,3 +1,11 @@
+matrixmethod/Eigen
+callgrind.out.*
+matrixmethod/matrixmethod
+matrixmethod/matrixmethod_opt
+matrixmethod/matrixmethod_ofast
+matrixmethod/matrixmethod_debug
+matrixmethod/matrixmethod_eigen
+
 ### IPythonNotebook template
 # Temporary data
 .ipynb_checkpoints/
