@@ -52,7 +52,7 @@ int main() {
 
     cout << "# ang_deg abs(r)**2 abs(t)**2 r.real r.imag t.real t.imag" << endl;
     for (uint i = 0; i < n_ang; i++) {
-        cout << ang_deg[i] << " " << pow(abs(rt.r[i]), 2) << " " << pow(abs(rt.t[i]), 2) << " " << rt.r[i].real() << " "
+        cout << ang_deg[i] << " " << sq(abs(rt.r[i])) << " " << sq(abs(rt.t[i])) << " " << rt.r[i].real() << " "
         << rt.r[i].imag() << " " << rt.t[i].real() << " " << rt.t[i].imag() << " " << endl;
     }
 

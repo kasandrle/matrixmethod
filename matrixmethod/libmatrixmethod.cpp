@@ -74,34 +74,13 @@ typedef complex<double> c;
 
 const c j(0., 1.);
 
-struct pm_t {
-    c p;
-    c m;
-};
-
-
-struct pm_t pm(const vector<c> & k_z, const uint & l, const vector<double> & s2h) {
-    // matrix elements of the refraction matrices
-    // p[j] is p_{j, j+1}
-    // p_{j, j+1} = (k_{z, j} + k_{z, j+1}) / (2 * k_{z, j}) * exp(-(k_{z,j} - k_{z,j+1})**2 sigma_j**2/2) for all j=0..N-1
-    // m_{j, j+1} = (k_{z, j} - k_{z, j+1}) / (2 * k_{z, j}) * exp(-(k_{z,j} + k_{z,j+1})**2 sigma_j**2/2) for all j=0..N-1
-
-    const c p = k_z[l] + k_z[l + 1];
-    const c m = k_z[l] - k_z[l + 1];
-    const c rp = exp(-pow(m, 2) * s2h[l]);
-    const c rm = exp(-pow(p, 2) * s2h[l]);
-    const c o = 2. * k_z[l];
-    struct pm_t pm;
-    pm.p = p * rp / o;
-    pm.m = m * rm / o;
-    return pm;
-}
-
 struct mat2x2_t {
     c m11;
     c m12;
     c m21;
     c m22;
+    mat2x2_t(c m11, c m12, c m21, c m22): m11(m11), m12(m12), m21(m21), m22(m22) {}
+    mat2x2_t() {}
 };
 
 void mul_inplace(struct mat2x2_t & a, const struct mat2x2_t & b) {
@@ -118,46 +97,76 @@ void mul_inplace(struct mat2x2_t & a, const struct mat2x2_t & b) {
 struct rt_t {
     c r;
     c t;
+    rt_t(c r, c t): r(r), t(t) {}
 };
+
+double sq(const double & in) {
+    return in * in;
+}
+
+c sq(const c & in) {
+    return c(sq(in.real()) - sq(in.imag()),
+             2*in.real()*in.imag());
+}
+
+double two_times(const double & in) {
+    return in + in;
+}
+
+c two_times(const c & in) {
+    return in + in;
+}
 
 struct rt_t reflec_and_trans_inner(const vector<c> & k2n2, const double & k2, const double & theta,
                                    const vector<double> & thick, const vector<double> & s2h,
-                                   const uint & N) {
-    const double k2_x = k2 * pow(cos(theta), 2);  // k_x is conserved due to snells law
-    vector<c> k_z(k2n2.size());
+                                   const uint & N, vector<c> & k_z, vector<mat2x2_t> & mm) {
+    const double k2_x = k2 * sq(cos(theta));  // k_x is conserved due to snells law
     for (uint i=0; i < k2n2.size(); i++) {  // k_z is different for each layer
         k_z[i] = -sqrt(k2n2[i] - k2_x);
     }
 
-    struct pm_t pmS = pm(k_z, N, s2h);
-    // initialize transition matrix MM to RR over interface to substrate
-    struct mat2x2_t MM;
-    MM.m11 = pmS.p;
-    MM.m12 = pmS.m;
-    MM.m21 = pmS.m;
-    MM.m22 = pmS.p;
-    for (uint l = 0; l < N; l++) {
-        uint i = N - l - 1; // i = N-1 .. 0
-        // transition through layer i
-        c vi = j * k_z[i + 1] * thick[i];
-        // transition through interface between i-1 and i
-        struct pm_t pmi = pm(k_z, i, s2h);
-        struct mat2x2_t m;
-        m.m11 = pmi.p * exp(-vi);
-        m.m12 = pmi.m * exp(+vi);
-        m.m21 = pmi.m * exp(-vi);
-        m.m22 = pmi.p * exp(+vi);
-        //cout << MM.m11 << " " << MM.m12 << endl;
-        //cout << MM.m21 << " " << MM.m22 << endl << endl;
-
-        mul_inplace(MM, m);
+    // pre-compute the coefficients for construction of the matrix elements of the refraction matrices
+    // pre-compute the coefficients for construction of the transition matrices
+    for (uint l=0; l < N+1; l++) {
+        const c kzl = k_z[l];
+        const c kzlp = k_z[l+1];
+        const c tp = kzl + kzlp;
+        const c tm = kzl - kzlp;
+        const c rp = exp(-sq(tm) * s2h[l]);
+        const c rm = exp(-sq(tp) * s2h[l]);
+        const c o = two_times(kzl);
+        const c p = tp * rp/o;
+        const c m = tm * rm/o;
+        if (l < N) {
+            const c epv = exp(j * kzlp * thick[l]);
+            mm[l].m11 = p / epv;
+            mm[l].m12 = m * epv;
+            mm[l].m21 = m / epv;
+            mm[l].m22 = p * epv;
+        }
+        else {
+            mm[l].m11 = p;
+            mm[l].m12 = m;
+            mm[l].m21 = m;
+            mm[l].m22 = p;
+        }
     }
 
-    struct rt_t rt;
-    // reflection coefficient
-    rt.r = MM.m12 / MM.m22;
-    // transmission coefficient
-    rt.t = 1. / MM.m22;
+    // initialize transition matrix MM to RR over interface to substrate
+    struct mat2x2_t MM = mm[N];
+    for (uint l = 0; l < N; l++) {
+        uint i = N - l - 1; // i = N-1 .. 0
+        // transition through interface between i-1 and i and through layer i
+        // TT * RR
+        mul_inplace(MM, mm[i]);
+    }
+
+    struct rt_t rt (
+            // reflection coefficient
+            MM.m12 / MM.m22,
+            // transmission coefficient
+            1. / MM.m22
+    );
 
     return rt;
 }
@@ -180,22 +189,25 @@ struct vec_rt_t reflec_and_trans(const vector<c> & n, const double & lam, const 
     // :param thick: thicknesses in nm, len(thick) = N-2, since layer 0 and layer N are assumed infinite
     // :param rough: rms roughness in nm, len(rough) = N-1 (number of interfaces)
     // :return: (reflec, trans)
-
-    const double k2 = pow(2. * M_PI / lam, 2);  // k is conserved
+    const double k2 = sq(2. * M_PI / lam);  // k is conserved
     const uint N = thick.size();
     const uint T = thetas.size();
     vector<c> k2n2(n.size());
     for (uint i=0; i < n.size(); i++) {
-        k2n2[i] = k2 * pow(n[i], 2);
+        k2n2[i] = k2 * sq(n[i]);
     }
     vector<double> s2h(rough.size());
     for (uint i=0; i < rough.size(); i++) {
-        s2h[i] = pow(rough[i], 2) / 2.;
+        s2h[i] = sq(rough[i]) / 2.;
     }
 
+    // results
     vector<c> rs(T), ts(T);
+    // temporary data storage
+    vector<mat2x2_t> mm(N+1);
+    vector<c> k_z(n.size());
     for (uint i=0; i < T; i++) {
-        struct rt_t rt = reflec_and_trans_inner(k2n2, k2, thetas[i], thick, s2h, N);
+        struct rt_t rt = reflec_and_trans_inner(k2n2, k2, thetas[i], thick, s2h, N, k_z, mm);
         rs[i] = rt.r;
         ts[i] = rt.t;
     }
