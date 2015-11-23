@@ -50,10 +50,10 @@ OPTIMIZE += -floop-nest-optimize
 
 
 matrixmethod: matrixmethod.cpp libmatrixmethod.cpp
-	g++ -Wall -std=c++0x -O3 -march=native matrixmethod.cpp -o matrixmethod
-	g++ -Wall -std=c++0x -Ofast -march=native matrixmethod.cpp -o matrixmethod_ofast
-	g++ -Wall -std=c++0x -Ofast -march=native ${OPTIMIZE} matrixmethod.cpp -o matrixmethod_opt
-	g++ -Wall -std=c++0x -Ofast -march=native -g ${OPTIMIZE} matrixmethod.cpp -o matrixmethod_debug
+	g++ -Wall -std=c++11 -O3 -march=native matrixmethod.cpp -o matrixmethod
+	g++ -Wall -std=c++11 -Ofast -march=native matrixmethod.cpp -o matrixmethod_ofast
+	g++ -Wall -std=c++11 -Ofast -march=native ${OPTIMIZE} matrixmethod.cpp -o matrixmethod_opt
+	g++ -Wall -std=c++11 -Ofast -march=native -g ${OPTIMIZE} matrixmethod.cpp -o matrixmethod_debug
 
 matrixmethod_eigen: matrixmethod_eigen.cpp libmatrixmethod_eigen.cpp
 	g++ -Wall -std=c++0x -I . -O3 -march=native -mtune=native matrixmethod_eigen.cpp -o matrixmethod_eigen

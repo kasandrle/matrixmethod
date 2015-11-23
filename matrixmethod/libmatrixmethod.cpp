@@ -70,27 +70,27 @@ and the transmission coefficient is:
 
 using namespace std;
 
-typedef complex<double> c;
+typedef complex<float> cf;
 
-const c j(0., 1.);
+const cf j(0., 1.);
 
 struct pm_t {
-    c p;
-    c m;
+    cf p;
+    cf m;
 };
 
 
-struct pm_t pm(const vector<c> & k_z, const uint & l, const vector<double> & s2h) {
+struct pm_t pm(const vector<cf> & k_z, const uint & l, const vector<float> & s2h) {
     // matrix elements of the refraction matrices
     // p[j] is p_{j, j+1}
     // p_{j, j+1} = (k_{z, j} + k_{z, j+1}) / (2 * k_{z, j}) * exp(-(k_{z,j} - k_{z,j+1})**2 sigma_j**2/2) for all j=0..N-1
     // m_{j, j+1} = (k_{z, j} - k_{z, j+1}) / (2 * k_{z, j}) * exp(-(k_{z,j} + k_{z,j+1})**2 sigma_j**2/2) for all j=0..N-1
 
-    const c p = k_z[l] + k_z[l + 1];
-    const c m = k_z[l] - k_z[l + 1];
-    const c rp = exp(-pow(m, 2) * s2h[l]);
-    const c rm = exp(-pow(p, 2) * s2h[l]);
-    const c o = 2. * k_z[l];
+    const cf p = k_z[l] + k_z[l + 1];
+    const cf m = k_z[l] - k_z[l + 1];
+    const cf rp = exp(-pow(m, 2.f) * s2h[l]);
+    const cf rm = exp(-pow(p, 2.f) * s2h[l]);
+    const cf o = 2.f * k_z[l];
     struct pm_t pm;
     pm.p = p * rp / o;
     pm.m = m * rm / o;
@@ -98,33 +98,33 @@ struct pm_t pm(const vector<c> & k_z, const uint & l, const vector<double> & s2h
 }
 
 struct mat2x2_t {
-    c m11;
-    c m12;
-    c m21;
-    c m22;
+    cf m11;
+    cf m12;
+    cf m21;
+    cf m22;
 };
 
 void mul_inplace(struct mat2x2_t & a, const struct mat2x2_t & b) {
-    c temp_am11 = b.m11 * a.m11 + b.m12 * a.m21;
+    cf temp_am11 = b.m11 * a.m11 + b.m12 * a.m21;
     a.m21 = b.m21 * a.m11 + b.m22 * a.m21;
     a.m11 = temp_am11;
 
-    c temp_am12 = b.m11 * a.m12 + b.m12 * a.m22;
+    cf temp_am12 = b.m11 * a.m12 + b.m12 * a.m22;
     a.m22 = b.m21 * a.m12 + b.m22 * a.m22;
     a.m12 = temp_am12;
 }
 
 
 struct rt_t {
-    c r;
-    c t;
+    cf r;
+    cf t;
 };
 
-struct rt_t reflec_and_trans_inner(const vector<c> & k2n2, const double & k2, const double & theta,
-                                   const vector<double> & thick, const vector<double> & s2h,
+struct rt_t reflec_and_trans_inner(const vector<cf> & k2n2, const float & k2, const float & theta,
+                                   const vector<float> & thick, const vector<float> & s2h,
                                    const uint & N) {
-    const double k2_x = k2 * pow(cos(theta), 2);  // k_x is conserved due to snells law
-    vector<c> k_z(k2n2.size());
+    const float k2_x = k2 * pow(cos(theta), 2.f);  // k_x is conserved due to snells law
+    vector<cf> k_z(k2n2.size());
     for (uint i=0; i < k2n2.size(); i++) {  // k_z is different for each layer
         k_z[i] = -sqrt(k2n2[i] - k2_x);
     }
@@ -139,7 +139,7 @@ struct rt_t reflec_and_trans_inner(const vector<c> & k2n2, const double & k2, co
     for (uint l = 0; l < N; l++) {
         uint i = N - l - 1; // i = N-1 .. 0
         // transition through layer i
-        c vi = j * k_z[i + 1] * thick[i];
+        cf vi = j * k_z[i + 1] * thick[i];
         // transition through interface between i-1 and i
         struct pm_t pmi = pm(k_z, i, s2h);
         struct mat2x2_t m;
@@ -157,19 +157,19 @@ struct rt_t reflec_and_trans_inner(const vector<c> & k2n2, const double & k2, co
     // reflection coefficient
     rt.r = MM.m12 / MM.m22;
     // transmission coefficient
-    rt.t = 1. / MM.m22;
+    rt.t = 1.f / MM.m22;
 
     return rt;
 }
 
 struct vec_rt_t {
-    vector<c> r;
-    vector<c> t;
+    vector<cf> r;
+    vector<cf> t;
 };
 
 
-struct vec_rt_t reflec_and_trans(const vector<c> & n, const double & lam, const vector<double> & thetas,
-                                 const vector<double> & thick, const vector<double> & rough) {
+struct vec_rt_t reflec_and_trans(const vector<cf> & n, const float & lam, const vector<float> & thetas,
+                                 const vector<float> & thick, const vector<float> & rough) {
     // Calculate the reflection coefficient and the transmission coefficient for a stack of N layers, with the incident
     // wave coming from layer 0, which is reflected into layer 0 and transmitted into layer N.
     // Note that N=len(n) is the total number of layers, including the substrate. That is the only point where the notation
@@ -181,19 +181,19 @@ struct vec_rt_t reflec_and_trans(const vector<c> & n, const double & lam, const 
     // :param rough: rms roughness in nm, len(rough) = N-1 (number of interfaces)
     // :return: (reflec, trans)
 
-    const double k2 = pow(2. * M_PI / lam, 2);  // k is conserved
+    const float k2 = pow(2.f * M_PI / lam, 2.f);  // k is conserved
     const uint N = thick.size();
     const uint T = thetas.size();
-    vector<c> k2n2(n.size());
+    vector<cf> k2n2(n.size());
     for (uint i=0; i < n.size(); i++) {
-        k2n2[i] = k2 * pow(n[i], 2);
+        k2n2[i] = k2 * pow(n[i], 2.f);
     }
-    vector<double> s2h(rough.size());
+    vector<float> s2h(rough.size());
     for (uint i=0; i < rough.size(); i++) {
-        s2h[i] = pow(rough[i], 2) / 2.;
+        s2h[i] = pow(rough[i], 2.f) / 2.f;
     }
 
-    vector<c> rs(T), ts(T);
+    vector<cf> rs(T), ts(T);
     for (uint i=0; i < T; i++) {
         struct rt_t rt = reflec_and_trans_inner(k2n2, k2, thetas[i], thick, s2h, N);
         rs[i] = rt.r;
