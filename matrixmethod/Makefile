@@ -47,18 +47,26 @@ OPTIMIZE += -floop-block		#Perform loop blocking transformations on loops.
 OPTIMIZE += -fgraphite-identity
 OPTIMIZE += -floop-nest-optimize
 
+GCC5 = /var/tmp/mpfluege-s/gcc/bin/g++
+GCC5FLAGS = -I /var/tmp/mpfluege-s/gcc/include -L /var/tmp/mpfluege-s/gcc/lib64
 
+IPPFLAGS = -I /var/tmp/mpfluege-s/intel/ipp/include -L /var/tmp/mpfluege-s/intel/ipp/lib
 
-matrixmethod: matrixmethod.cpp libmatrixmethod.cpp
+matrixmethod: matrixmethod.cpp
 	g++ -Wall -std=c++11 -O3 -march=native matrixmethod.cpp -o matrixmethod
 	g++ -Wall -std=c++11 -Ofast -march=native matrixmethod.cpp -o matrixmethod_ofast
 	g++ -Wall -std=c++11 -Ofast -march=native ${OPTIMIZE} matrixmethod.cpp -o matrixmethod_opt
 	#g++ -Wall -std=c++11 -Ofast -march=native ${OPTIMIZE} matrixmethod.cpp -o matrixmethod_openmp
 	g++ -Wall -std=c++11 -Ofast -march=native -g ${OPTIMIZE} matrixmethod.cpp -o matrixmethod_debug
+	${GCC5} ${GCC5FLAGS} -Wall -std=c++11 -Ofast -march=native ${OPTIMIZE} -ftree-vectorizer-verbose=2 -fopt-info-vec-missed matrixmethod.cpp -o matrixmethod_gcc5_opt
 
 matrixmethod_eigen: matrixmethod_eigen.cpp libmatrixmethod_eigen.cpp
 	g++ -Wall -std=c++11 -I . -O3 -march=native -mtune=native matrixmethod_eigen.cpp -o matrixmethod_eigen
 	g++ -Wall -std=c++11 -I . -Ofast -march=native -mtune=native matrixmethod_eigen.cpp -o matrixmethod_eigen_ofast
+
+
+matrixmethod_ipp: matrixmethod_ipp.cpp
+	${GCC5} ${GCC5FLAGS} -Wall -std=c++11 -Ofast -march=native ${OPTIMIZE} ${IPPFLAGS} -ftree-vectorizer-verbose=2 matrixmethod_ipp.cpp -o matrixmethod_ipp_opt
 
 clean:
 	rm -f matrixmethod
@@ -72,3 +80,4 @@ clean:
 	rm -f matrixmethod_opt
 	rm -f matrixmethod_debug
 	rm -f matrixmethod_openmp
+	rm -f matrixmethod_gcc5_opt

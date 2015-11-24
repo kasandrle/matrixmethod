@@ -62,13 +62,13 @@ and the transmission coefficient is:
  t = \frac{1}{M_{22}}
 */
 
-#include <complex>
-#include <cmath>
 #include <iostream>
+#include "ipp.h"
 
 using namespace std;
 
-typedef complex<double> c;
+typedef Ipp64fc c;
+typedef Ipp64f d;
 
 const c j(0., 1.);
 
@@ -96,43 +96,33 @@ struct rt_t {
     rt_t(c r, c t): r(r), t(t) {}
 };
 
-double sq(const double & in) {
-    return in * in;
-}
 
-
-double two_times(const double & in) {
-    return in + in;
-}
-
-c two_times(const c & in) {
-    return in + in;
-}
-
-c sq(const c & in) {
-    return c(sq(in.real()) - sq(in.imag()),
-             2*in.real()*in.imag());
-}
-
-struct rt_t reflec_and_trans_inner(const c * __restrict__ k2n2, const double & k2, const double & theta,
-                                   const double * __restrict__ thick, const double * __restrict__ s2h) {
+struct rt_t reflec_and_trans_inner(const c * k2n2, const d & k2, const d & theta,
+                                   const d * thick, const d * s2h) {
 
     mat2x2_t mm[N];
+
+    const Ipp64f k2_x = k2 * sq(cos(theta));  // k_x is conserved due to snells law
+
     c k_z[N+2];
+    ippsAddC_64fc(k2n2, k2_x, k_z, N+2);
+    ippsSqrt_64fc_I(k_z, N+2);
+    c * k_z = vzSqrt(N+2, k2n2);
     c k_z_p[N+1];
-
-    const double k2_x = k2 * sq(cos(theta));  // k_x is conserved due to snells law
-
-    #pragma omp simd
-    for (uint i=0; i < N+2; i++) {  // k_z is different for each layer
-        k_z[i] = -sqrt(k2n2[i] - k2_x);
-    }
-    for (uint i=0; i < N+1; i++) {
-        k_z_p[i] = k_z[i+1];
-    }
+    ippsCopy_64fc(k_z+1*sizeof(c), k_z_p, N+1);
 
     // pre-compute the coefficients for construction of the matrix elements of the refraction matrices
     // pre-compute the coefficients for construction of the transition matrices
+    c tp[N+1];
+    c tm[N+1];
+    ippsAdd_64fc(k_z, k_z_p, tp, N+1);
+    ippsSub_64fc(k_z, k_z_p, tp, N+1);
+    c rp[N+1];
+    c rm[N+1];
+    ippsSqr_64fc(tm, rp, N+1);
+    ippsMul_64fc_I(s2h, tm, N+1);
+    ipps
+
     for (uint l=0; l < N; l++) {
         const c tp = k_z[l] + k_z_p[l];
         const c tm = k_z[l] - k_z_p[l];
@@ -186,8 +176,8 @@ struct arr_rt_t {
 };
 
 
-struct arr_rt_t reflec_and_trans(const c * __restrict__ n, const double & lam, const double * __restrict__ thetas,
-                                 const double * __restrict__ thick, const double * __restrict__ rough) {
+struct arr_rt_t reflec_and_trans(const c * n, const d & lam, const d * thetas,
+                                 const d * thick, const d * rough) {
     // Calculate the reflection coefficient and the transmission coefficient for a stack of N layers, with the incident
     // wave coming from layer 0, which is reflected into layer 0 and transmitted into layer N.
     // Note that N=len(n) is the total number of layers, including the substrate. That is the only point where the notation
@@ -198,12 +188,12 @@ struct arr_rt_t reflec_and_trans(const c * __restrict__ n, const double & lam, c
     // :param thick: thicknesses in nm, len(thick) = N-2, since layer 0 and layer N are assumed infinite
     // :param rough: rms roughness in nm, len(rough) = N-1 (number of interfaces)
     // :return: (reflec, trans)
-    const double k2 = sq(2. * M_PI / lam);  // k is conserved
+    const d k2 = sq(2. * M_PI / lam);  // k is conserved
     c k2n2[N+2];
     for (uint i=0; i < N+2; i++) {
         k2n2[i] = k2 * sq(n[i]);
     }
-    double s2h[N+1];
+    d s2h[N+1];
     for (uint i=0; i < N+1; i++) {
         s2h[i] = sq(rough[i]) / 2.;
     }
@@ -229,25 +219,25 @@ int main() {
             n[i] = 1. - 2e-5 + 2e-6 * j;
         }
     }
-    double thick[N];
+    d thick[N];
     for (uint i = 0; i < N; i++) {
         thick[i] = 0.1;
     }
-    double rough[N+1];
+    d rough[N+1];
     for (uint i = 0; i < N+1; i++) {
         rough[i] = 0.02;
     }
 
-    const double wl = 0.15;
+    const d wl = 0.15;
 
-    const double start = 0.1;
-    const double end = 2.0;
-    const double step = (end-start) / (T-1);
-    double ang_deg[T];
+    const d start = 0.1;
+    const d end = 2.0;
+    const d step = (end-start) / (T-1);
+    d ang_deg[T];
     for (uint i = 0; i < T; i++) {
         ang_deg[i] = start + step * i;
     }
-    double ang[T];
+    d ang[T];
     for (uint i = 0; i < T; i++) {
         ang[i] = ang_deg[i] * M_PI / 180.;
     }
