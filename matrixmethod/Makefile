@@ -21,6 +21,7 @@ OPTIMIZE += -ftree-loop-distribution		# Perform loop distribution.
 OPTIMIZE += -ftree-vectorize			# Perform vectorization on trees.
 
 OPTIMIZE += -fcx-fortran-rules			# Complex multiplication and division follow Fortran rules.
+OPTIMIZE += -fcx-limited-range          # Complex multiplication and division assume no inf/NaNs.
 OPTIMIZE += -fsched-spec-load-dangerous 	# Allow speculative motion of more load instructions.
 OPTIMIZE += -funsafe-loop-optimizations 	# This option tells the loop optimizer to assume that loop indices do not overflow, and that loops with nontrivial exit condition are not infinite. 
 
@@ -37,7 +38,6 @@ OPTIMIZE += -funsafe-math-optimizations # Allow optimizations for floating-point
 OPTIMIZE += -ffinite-math-only		# Allow optimizations for floating-point arithmetic that assume that arguments and results are not NaNs or +-Infs. 
 OPTIMIZE += -fno-signed-zeros		# Allow optimizations for floating-point arithmetic that ignore the signedness of zero.
 OPTIMIZE += -fno-trapping-math		# Compile code assuming that floating-point operations cannot generate user-visible traps. These traps include division by zero, overflow, underflow, inexact result and invalid operation.
-OPTIMIZE += -funsafe-loop-optimizations	# This option tells the loop optimizer to assume that loop indices do not overflow, and that loops with nontrivial exit condition are not infinite. 	
 
 
 # GRAPHITE
@@ -53,11 +53,12 @@ matrixmethod: matrixmethod.cpp libmatrixmethod.cpp
 	g++ -Wall -std=c++11 -O3 -march=native matrixmethod.cpp -o matrixmethod
 	g++ -Wall -std=c++11 -Ofast -march=native matrixmethod.cpp -o matrixmethod_ofast
 	g++ -Wall -std=c++11 -Ofast -march=native ${OPTIMIZE} matrixmethod.cpp -o matrixmethod_opt
+	#g++ -Wall -std=c++11 -Ofast -march=native ${OPTIMIZE} matrixmethod.cpp -o matrixmethod_openmp
 	g++ -Wall -std=c++11 -Ofast -march=native -g ${OPTIMIZE} matrixmethod.cpp -o matrixmethod_debug
 
 matrixmethod_eigen: matrixmethod_eigen.cpp libmatrixmethod_eigen.cpp
-	g++ -Wall -std=c++0x -I . -O3 -march=native -mtune=native matrixmethod_eigen.cpp -o matrixmethod_eigen
-	g++ -Wall -std=c++0x -I . -Ofast -march=native -mtune=native matrixmethod_eigen.cpp -o matrixmethod_eigen_ofast
+	g++ -Wall -std=c++11 -I . -O3 -march=native -mtune=native matrixmethod_eigen.cpp -o matrixmethod_eigen
+	g++ -Wall -std=c++11 -I . -Ofast -march=native -mtune=native matrixmethod_eigen.cpp -o matrixmethod_eigen_ofast
 
 clean:
 	rm -f matrixmethod
@@ -70,3 +71,4 @@ clean:
 	rm -f matrixmethod_eigen_ofast
 	rm -f matrixmethod_opt
 	rm -f matrixmethod_debug
+	rm -f matrixmethod_openmp
