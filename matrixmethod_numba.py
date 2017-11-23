@@ -81,37 +81,42 @@ def p_m(k_z, l, s2h):
     """
     p = k_z[l] + k_z[l+1]
     m = k_z[l] - k_z[l+1]
-    rp = cmath.exp(-m**2*s2h[l])
-    rm = cmath.exp(-p**2*s2h[l])
+    rp = cmath.exp(-sq(m) * s2h[l])
+    rm = cmath.exp(-sq(p) * s2h[l])
     o = 2 * k_z[l]
     return p*rp/o, m*rm/o
 
 
 @numba.jit(nopython=True, cache=True)
+def sq(input):
+    return input*input
+
+
+@numba.jit(nopython=True, cache=True)
 def reflec_and_trans_inner(k2n2, k2, theta, thick, s2h):
     # wavevectors in the different layers
-    k2_x = k2 * math.cos(theta)**2  # k_x is conserved due to snell's law
+    k2_x = k2 * sq(math.cos(theta))  # k_x is conserved due to snell's law
     k_z = -np.sqrt(k2n2 - k2_x)  # k_z is different for each layer.
     N = len(thick)  # number of layers
 
     pS, mS = p_m(k_z, N, s2h)
     # RR over interface to substrate
-    mm11 = pS
+    #mm11 = pS
     mm12 = mS
-    mm21 = mS
+    #mm21 = mS
     mm22 = pS
     for l in range(N):
         j = N - l - 1  # j = N-1 .. 0
         # transition through layer j
-        vj = 1j * k_z[j+1] * thick[j]
+        vj = cmath.exp(1j * k_z[j+1] * thick[j])
         # transition through interface between j-1 an j
         pj, mj = p_m(k_z, j, s2h)
-        m11 = pj * cmath.exp(-vj)
-        m12 = mj * cmath.exp(+vj)
-        m21 = mj * cmath.exp(-vj)
-        m22 = pj * cmath.exp(+vj)
+        m11 = pj / vj
+        m12 = mj * vj
+        m21 = mj / vj
+        m22 = pj * vj
 
-        mm11, mm21 = m11*mm11 + m12*mm21, m21*mm11 + m22*mm21
+        #mm11, mm21 = m11*mm11 + m12*mm21, m21*mm11 + m22*mm21
         mm12, mm22 = m11*mm12 + m12*mm22, m21*mm12 + m22*mm22
 
     # reflection coefficient
@@ -136,6 +141,8 @@ def reflec_and_trans(n, lam, thetas, thick, rough):
     :param rough: rms roughness in nm, len(rough) = N-1 (number of interfaces)
     :return: (reflec, trans)
     """
+    if not len(n) == len(rough) + 1 == len(thick) + 2:
+        raise ValueError('array lengths do not match: len(n) == len(rough) + 1 == len(thick) + 2 does not hold.')
     k2 = (2 * math.pi / lam)**2  # k is conserved
     k2n2 = k2 * n**2
     s2h = rough**2 / 2
@@ -315,7 +322,7 @@ def fields_positions(n, lam, thetas, thick, rough, evaluation_positions):
     :param rough: rms roughness in nm, len(rough) = N-1 (number of interfaces)
     :param evaluation_positions: positions (in nm) at which the electric field should be evaluated. Given in distance
            from the surface, with the axis poiting away from the layer (i.e. negative positions are within the stack)
-    :return: (reflec, trans)
+    :return: (reflec, trans, pos_reflec, pos_trans)
     """
     N = len(thick)
     T = len(thetas)
@@ -443,7 +450,7 @@ def fields_positions_positions(evaluation_positions, rs, ts, k_z, Z):
 
 
 if __name__ == '__main__':
-    _n_layers = 10001
+    _n_layers = 1001
     _n = np.array([1] + [1-1e-5+1e-6j, 1-2e-5+2e-6j]*int((_n_layers-1)/2))
     _thick = np.array([.1]*(_n_layers-2))
     _rough = np.array([.02]*(_n_layers-1))
@@ -453,12 +460,12 @@ if __name__ == '__main__':
     #print('ang_deg')
     #for _i in _ang_deg:
     #    print(_i)
-    _r, _t = reflec_and_trans(_n, _wl, _ang, _thick, _rough)
-    _ar = np.abs(_r)**2
-    _at = np.abs(_t)**2
-    print('# ang_deg abs(r)**2 abs(t)**2 r.real r.imag t.real t.imag')
-    for _a, _iar, _iat, _ir, _it in zip(_ang_deg, _ar, _at, _r, _t):
-        print('{} {} {} {} {} {} {}'.format(_a, _iar, _iat, _ir.real, _ir.imag, _it.real, _it.imag))
+    _f = fields(_n, _wl, _ang, _thick, _rough)
+    #_ar = np.abs(_r)**2
+    #_at = np.abs(_t)**2
+    #print('# ang_deg abs(r)**2 abs(t)**2 r.real r.imag t.real t.imag')
+    #for _a, _iar, _iat, _ir, _it in zip(_ang_deg, _ar, _at, _r, _t):
+    #    print('{} {} {} {} {} {} {}'.format(_a, _iar, _iat, _ir.real, _ir.imag, _it.real, _it.imag))
 
 
 

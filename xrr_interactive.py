@@ -18,15 +18,15 @@ import numba
 
 from matrixmethod_numba import fields_positions_fields, fields_positions_positions
 
-#energy = 3000 * u.eV
+energy = 2000 * u.eV
 
-n = np.array([1, 1.5]*65)
-rough = np.array([50.]*(65*2-1))
-thick = np.array([50000.]*(65*2-2))  # nm
-wl = 1050  # nm
-ang_deg = np.linspace(0, 90, 90001)[1:]
+n = np.array([1, 1-0.00010885192136989019+1.8106738274706911e-05j, 1-0.00020885192136989019+2.8106738274706911e-05j, 1])
+rough = np.array([2.]*3)
+thick = np.array([5, 20])  # nm
+wl = energy.to(u.nm, 'sp').magnitude  # nm
+ang_deg = np.linspace(0, 5, 10001)[1:]
 ang = np.deg2rad(ang_deg)
-positions = np.linspace(50000, -200000, 25001)
+positions = np.linspace(20, -30, 25001)
 
 fr, ft, k_z, Z = fields_positions_fields(n, wl, ang, thick, rough)
 
