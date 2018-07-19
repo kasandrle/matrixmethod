@@ -72,7 +72,7 @@ def reflec_and_trans(n, lam, thetas, thick, rough):
     wave coming from layer 0, which is reflected into layer 0 and transmitted into layer N.
     Note that N=len(n) is the total number of layers, including the substrate. That is the only point where the notation
     differs from Gibaud & Vignaud.
-    :param n: vector of refractive indices n = 1 - \delta - i \beta of all layers, so n[0] is usually 1.
+    :param n: vector of refractive indices n = 1 - \delta + i \beta of all layers, so n[0] is usually 1.
     :param lam: x-ray wavelength in nm
     :param theta: incident angle in rad
     :param thick: thicknesses in nm, len(thick) = N-2, since layer 0 and layer N are assumed infinite
@@ -133,8 +133,8 @@ def reflec_and_trans(n, lam, thetas, thick, rough):
 
 
 if __name__ == '__main__':
-    n_layers = 10001
-    n = np.array([1] + [1-1e-5+1e-6j, 1-2e-5+2e-6j]*((n_layers-1)/2))
+    n_layers = 101
+    n = np.array([1] + [1-1e-5+1e-6j, 1-2e-5+2e-6j]*((n_layers-1)//2))
     thick = np.array([.1]*(n_layers-2))
     rough = np.array([.02]*(n_layers-1))
     wl = 0.15
@@ -143,10 +143,10 @@ if __name__ == '__main__':
     r, t = reflec_and_trans(n, wl, ang, thick, rough)
     print('r')
     for i in r:
-        print(i)
+        print(abs(i**2))
     print('t')
     for i in t:
-        print(i)
+        print(abs(i**2))
 
 
 

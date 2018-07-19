@@ -134,7 +134,7 @@ def reflec_and_trans(n, lam, thetas, thick, rough):
     wave coming from layer 0, which is reflected into layer 0 and transmitted into layer N.
     Note that N=len(n) is the total number of layers, including the substrate. That is the only point where the notation
     differs from Gibaud & Vignaud.
-    :param n: vector of refractive indices n = 1 - \delta - i \beta of all layers, so n[0] is usually 1.
+    :param n: vector of refractive indices n = 1 - \delta + i \beta of all layers, so n[0] is usually 1.
     :param lam: x-ray wavelength in nm
     :param theta: incident angle in rad
     :param thick: thicknesses in nm, len(thick) = N-2, since layer 0 and layer N are assumed infinite
@@ -205,7 +205,7 @@ def fields(n, lam, thetas, thick, rough):
     wave coming from layer 0, which is reflected into layer 0 and transmitted into layer N.
     Note that N=len(n) is the total number of layers, including the substrate. That is the only point where the notation
     differs from Gibaud & Vignaud.
-    :param n: vector of refractive indices n = 1 - \delta - i \beta of all layers, so n[0] is usually 1.
+    :param n: vector of refractive indices n = 1 - \delta + i \beta of all layers, so n[0] is usually 1.
     :param lam: x-ray wavelength in nm
     :param theta: incident angle in rad
     :param thick: thicknesses in nm, len(thick) = N-2, since layer 0 and layer N are assumed infinite
@@ -315,7 +315,7 @@ def fields_positions(n, lam, thetas, thick, rough, evaluation_positions):
     wave coming from layer 0, which is reflected into layer 0 and transmitted into layer N.
     Note that N=len(n) is the total number of layers, including the substrate. That is the only point where the notation
     differs from Gibaud & Vignaud.
-    :param n: vector of refractive indices n = 1 - \delta - i \beta of all layers, so n[0] is usually 1.
+    :param n: vector of refractive indices n = 1 - \delta + i \beta of all layers, so n[0] is usually 1.
     :param lam: x-ray wavelength in nm
     :param theta: incident angle in rad
     :param thick: thicknesses in nm, len(thick) = N-2, since layer 0 and layer N are assumed infinite
@@ -373,7 +373,7 @@ def fields_positions_fields(n, lam, thetas, thick, rough):
     wave coming from layer 0, which is reflected into layer 0 and transmitted into layer N.
     Note that N=len(n) is the total number of layers, including the substrate. That is the only point where the notation
     differs from Gibaud & Vignaud.
-    :param n: vector of refractive indices n = 1 - \delta - i \beta of all layers, so n[0] is usually 1.
+    :param n: vector of refractive indices n = 1 - \delta + i \beta of all layers, so n[0] is usually 1.
     :param lam: x-ray wavelength in nm
     :param theta: incident angle in rad
     :param thick: thicknesses in nm, len(thick) = N-2, since layer 0 and layer N are assumed infinite
