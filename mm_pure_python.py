@@ -1,4 +1,7 @@
-"""Matrix method algorithm for x-ray reflectivity and transmittivity as described by A. Gibaud and G. Vignaud in
+"""Matrix method algorithm to calculate X-ray reflectivity and transmittivity for a stack of homogeneous layers.
+The algorithms in this file are written in pure, unoptimized python to make it them easy to understand and follow.
+
+Matrix method algorithm for x-ray reflectivity and transmittivity as described by A. Gibaud and G. Vignaud in
 J. Daillant, A. Gibaud (Eds.), "X-ray and Neutron Reflectivity: Principles and Applications", Lect. Notes Phys. 770
 (Springler, Berlin Heidelberg 2009), DOI 10.1007/978-3-540-88588-7, chapter 3.2.1 "The Matrix Method".
 
@@ -64,7 +67,6 @@ and the transmission coefficient is:
 """
 
 import numpy as np
-import scipy as sp
 
 
 def reflec_and_trans(n, lam, thetas, thick, rough):
@@ -72,9 +74,9 @@ def reflec_and_trans(n, lam, thetas, thick, rough):
     wave coming from layer 0, which is reflected into layer 0 and transmitted into layer N.
     Note that N=len(n) is the total number of layers, including the substrate. That is the only point where the notation
     differs from Gibaud & Vignaud.
-    :param n: vector of refractive indices n = 1 - \delta + i \beta of all layers, so n[0] is usually 1.
+    :param n: list of refractive indices n = 1 - \delta + i \beta of all layers, so n[0] is usually 1.
     :param lam: x-ray wavelength in nm
-    :param theta: incident angle in rad
+    :param thetas: list of incident angles in rad or single incident angle in rad
     :param thick: thicknesses in nm, len(thick) = N-2, since layer 0 and layer N are assumed infinite
     :param rough: rms roughness in nm, len(rough) = N-1 (number of interfaces)
     :return: (reflec, trans)
@@ -128,10 +130,6 @@ def reflec_and_trans(n, lam, thetas, thick, rough):
     return rs, ts
 
 
-
-
-
-
 if __name__ == '__main__':
     n_layers = 101
     n = np.array([1] + [1-1e-5+1e-6j, 1-2e-5+2e-6j]*((n_layers-1)//2))
@@ -147,20 +145,3 @@ if __name__ == '__main__':
     print('t')
     for i in t:
         print(abs(i**2))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -16,7 +16,7 @@ u = pint.UnitRegistry()
 
 import numba
 
-from matrixmethod_numba import fields_positions_fields, fields_positions_positions
+from mm_numba import prepare_fields, prepared_fields_at_positions
 
 energy = 10 * u.nm
 
@@ -28,7 +28,7 @@ ang_deg = np.linspace(0, 50, 10001)[1:]
 ang = np.deg2rad(ang_deg)
 positions = np.linspace(20, -50, 25001)
 
-fr, ft, k_z, Z = fields_positions_fields(n, wl, ang, thick, rough)
+fr, ft, k_z, Z = prepare_fields(n, wl, ang, thick, rough)
 
 app = QtGui.QApplication([])
 
@@ -76,7 +76,7 @@ field_plot.addItem(pg.InfiniteLine(thick[:3].sum(), pen=(128, 128, 0)))
 
 @numba.jit(cache=True)
 def replot(pos):
-    post, posr = fields_positions_positions(positions, fr[pos], ft[pos], k_z[pos], Z)
+    post, posr = prepared_fields_at_positions(positions, fr[pos], ft[pos], k_z[pos], Z)
     abs.setData(-positions, np.abs(post + posr))
     real.setData(-positions, np.real(post + posr))
     theta_line.setValue(ang_deg[pos])
