@@ -1,3 +1,4 @@
+archive/
 matrixmethod/Eigen
 callgrind.out.*
 matrixmethod/matrixmethod
