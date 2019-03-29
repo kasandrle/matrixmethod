@@ -74,7 +74,7 @@ field_plot.addItem(pg.InfiniteLine(thick[:2].sum(), pen=(128, 128, 0)))
 field_plot.addItem(pg.InfiniteLine(thick[:3].sum(), pen=(128, 128, 0)))
 
 
-@numba.jit(cache=True)
+#@numba.jit(cache=True)
 def replot(pos):
     post, posr = prepared_fields_at_positions(positions, fr[pos], ft[pos], k_z[pos], Z)
     abs.setData(-positions, np.abs(post + posr))
