@@ -77,8 +77,8 @@ try:
     pjit = numba.jit(nopython=True, cache=True, fastmath=True, nogil=True, parallel=True)
     prange = numba.prange
 except ImportError:
-    jit = id
-    pjit = id
+    jit = lambda x: x
+    pjit = lambda x: x
     prange = range
     import warnings
     warnings.warn('numba could not be imported, algorithms will run very slow. Install numba for better performance.')
