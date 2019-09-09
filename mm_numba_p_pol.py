@@ -311,7 +311,7 @@ def fields_parallel(n, lam, thetas, thick, rough):
 
 @jit
 def _fields_positions_inner(thick, s2h, kt, rs, ts, mm12, mm22, N, k_z, n2):
-    pS, mS = _p_m(k_z[kt], n2[kt], N, s2h)
+    pS, mS = _p_m(k_z[kt], n2, N, s2h)
     # entries of the transition matrix MM
     # mm11, mm12, mm21, mm22
     # RR over interface to substrate
@@ -322,7 +322,7 @@ def _fields_positions_inner(thick, s2h, kt, rs, ts, mm12, mm22, N, k_z, n2):
         # transition through layer j
         vj = cmath.exp(1j * k_z[kt][j+1] * thick[j])
         # transition through interface between j-1 an j
-        pj, mj = _p_m(k_z[kt], n2[kt], j, s2h)
+        pj, mj = _p_m(k_z[kt], n2, j, s2h)
         m11 = pj / vj
         m12 = mj * vj
         m21 = mj / vj
