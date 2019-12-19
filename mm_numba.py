@@ -111,8 +111,8 @@ def _p_m_p_pol(k_z, n2, l, s2h):
     p_{j, j+1} = (n_{j+1}**2 k_{z, j} + n_j**2 k_{z, j+1}) / (2 n_{n+1}**2 * k_{z, j}) * exp(-(k_{z,j} - k_{z,j+1})**2 sigma_j**2/2) for all j=0..N-1
     m_{j, j+1} = (n_{j+1}**2 k_{z, j} - n_j**2 k_{z, j+1}) / (2 n_{n+1}**2 * k_{z, j}) * exp(-(k_{z,j} + k_{z,j+1})**2 sigma_j**2/2) for all j=0..N-1
     """
-    n2lkzp = n2[l]*k_z[l+1]
-    n2lpkz = n2[l+1]*k_z[l]
+    n2lkzp = n2[l] * k_z[l+1]
+    n2lpkz = n2[l+1] * k_z[l]
     p = n2lpkz + n2lkzp
     m = n2lpkz - n2lkzp
     rp = cmath.exp(-np.square(k_z[l] - k_z[l+1]) * s2h[l])
@@ -130,12 +130,12 @@ def _p_m(k_z, n2, l, s2h, pol):
 
 
 @jit
-def _reflec_and_trans_inner(k2, n2, k2n2, theta, thick, s2h, N, pol):
+def _reflec_and_trans_inner_s(k2, k2n2, theta, thick, s2h, N):
     # wavevectors in the different layers
     k2_x = k2 * np.square(math.cos(theta))  # k_x is conserved due to snell's law
     k_z = -np.sqrt(k2n2 - k2_x)  # k_z is different for each layer.
 
-    pS, mS = _p_m(k_z, n2, N, s2h, pol)
+    pS, mS = _p_m_s_pol(k_z, N, s2h)
     # RR over interface to substrate
     mm12 = mS
     mm22 = pS
@@ -144,7 +144,39 @@ def _reflec_and_trans_inner(k2, n2, k2n2, theta, thick, s2h, N, pol):
         # transition through layer j
         vj = cmath.exp(1j * k_z[j+1] * thick[j])
         # transition through interface between j-1 an j
-        pj, mj = _p_m(k_z, n2, l, s2h, pol)
+        pj, mj = _p_m_s_pol(k_z, l, s2h)
+        m11 = pj / vj
+        m12 = mj * vj
+        m21 = mj / vj
+        m22 = pj * vj
+
+        mm12, mm22 = m11*mm12 + m12*mm22, m21*mm12 + m22*mm22
+
+    # reflection coefficient
+    r = mm12 / mm22
+
+    # transmission coefficient
+    t = 1 / mm22
+
+    return r, t
+
+
+@jit
+def _reflec_and_trans_inner_p(k2, n2, k2n2, theta, thick, s2h, N):
+    # wavevectors in the different layers
+    k2_x = k2 * np.square(math.cos(theta))  # k_x is conserved due to snell's law
+    k_z = -np.sqrt(k2n2 - k2_x)  # k_z is different for each layer.
+
+    pS, mS = _p_m_p_pol(k_z, n2, N, s2h)
+    # RR over interface to substrate
+    mm12 = mS
+    mm22 = pS
+    for l in range(N):
+        j = N - l - 1  # j = N-1 .. 0
+        # transition through layer j
+        vj = cmath.exp(1j * k_z[j+1] * thick[j])
+        # transition through interface between j-1 an j
+        pj, mj = _p_m_p_pol(k_z, n2, l, s2h)
         m11 = pj / vj
         m12 = mj * vj
         m21 = mj / vj
@@ -180,6 +212,31 @@ def _precompute(n, lam, thetas, thick, rough, pol):
 
 
 @jit
+def _reflec_and_trans_s(thetas, thick, k2, k2n2, s2h, N, T):
+    rs = np.empty(T, np.complex128)
+    ts = np.empty(T, np.complex128)
+    for i in range(T):
+        r, t = _reflec_and_trans_inner_s(k2, k2n2, thetas[i], thick, s2h, N)
+        rs[i] = r
+        ts[i] = t
+
+    return rs, ts
+
+
+@jit
+def _reflec_and_trans_p(thetas, thick, n2, k2, k2n2, s2h, N, T):
+    rs = np.empty(T, np.complex128)
+    ts = np.empty(T, np.complex128)
+    for i in range(T):
+        r, t = _reflec_and_trans_inner_p(k2, n2, k2n2, thetas[i], thick, s2h, N)
+        rs[i] = r
+        ts[i] = t
+
+    return rs, ts
+
+
+
+@jit
 def reflec_and_trans(n, lam, thetas, thick, rough, pol=1):
     """Calculate the reflection coefficient and the transmission coefficient for a stack of N layers, with the incident
     wave coming from layer 0, which is reflected into layer 0 and transmitted into layer N.
@@ -195,10 +252,30 @@ def reflec_and_trans(n, lam, thetas, thick, rough, pol=1):
     """
     k2, n2, k2n2, s2h, N, T = _precompute(n, lam, thetas, thick, rough, pol)
 
+    if pol:  # pol=1 is s
+        return _reflec_and_trans_s(thetas, thick, k2, k2n2, s2h, N, T)
+    else:
+        return _reflec_and_trans_p(thetas, thick, n2, k2, k2n2, s2h, N, T)
+
+
+@pjit
+def _reflec_and_trans_s_parallel(thetas, thick, k2, k2n2, s2h, N, T):
     rs = np.empty(T, np.complex128)
     ts = np.empty(T, np.complex128)
     for i in range(T):
-        r, t = _reflec_and_trans_inner(k2, n2, k2n2, thetas[i], thick, s2h, N, pol)
+        r, t = _reflec_and_trans_inner_s(k2, k2n2, thetas[i], thick, s2h, N)
+        rs[i] = r
+        ts[i] = t
+
+    return rs, ts
+
+
+@pjit
+def _reflec_and_trans_p_parallel(thetas, thick, n2, k2, k2n2, s2h, N, T):
+    rs = np.empty(T, np.complex128)
+    ts = np.empty(T, np.complex128)
+    for i in range(T):
+        r, t = _reflec_and_trans_inner_p(k2, n2, k2n2, thetas[i], thick, s2h, N)
         rs[i] = r
         ts[i] = t
 
@@ -226,14 +303,10 @@ def reflec_and_trans_parallel(n, lam, thetas, thick, rough, pol=1):
     """
     k2, n2, k2n2, s2h, N, T = _precompute(n, lam, thetas, thick, rough, pol)
 
-    rs = np.empty(T, np.complex128)
-    ts = np.empty(T, np.complex128)
-    for i in prange(T):
-        r, t = _reflec_and_trans_inner(k2, n2, k2n2, thetas[i], thick, s2h, N, pol)
-        rs[i] = r
-        ts[i] = t
-
-    return rs, ts
+    if pol:  # pol=1 is s
+        return _reflec_and_trans_s_parallel(thetas, thick, k2, k2n2, s2h, N, T)
+    else:
+        return _reflec_and_trans_p_parallel(thetas, thick, n2, k2, k2n2, s2h, N, T)
 
 
 @jit

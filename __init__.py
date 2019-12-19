@@ -10,8 +10,6 @@ fields: Calculate the transmission and reflection amplitudes for each layer in t
 fields_parallel: As fields, but parallelized.
 fields_at_positions: Calculate the transmission and reflection amplitudes at specific positions in the stack.
 fields_at_positions_parallel: As fields_at_positions, but parallelized.
-prepare_fields, prepared_fields_at_positions: Separately calculate the transmission and reflection amplitudes for each
-    layer in the stack and then at specific positions in the stack. (special use cases only)
 
 
 Matrix method algorithm for x-ray reflectivity and transmittivity as described by A. Gibaud and G. Vignaud in
