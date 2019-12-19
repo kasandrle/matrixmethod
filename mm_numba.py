@@ -1,5 +1,6 @@
 """Matrix method algorithm to calculate X-ray reflectivity and transmittivity for a stack of homogeneous layers.
-The algorithms in this file are written in numba for maximum speed, and are therefore sometimes difficult to follow.
+The algorithms in this file are written in numba for maximum speed, and are therefore sometimes more difficult to follow
+than the pure python implementations.
 
 Matrix method algorithm for x-ray reflectivity and transmittivity as described by A. Gibaud and G. Vignaud in
 J. Daillant, A. Gibaud (Eds.), "X-ray and Neutron Reflectivity: Principles and Applications", Lect. Notes Phys. 770
@@ -93,21 +94,15 @@ def _p_m(k_z, l, s2h):
     """
     p = k_z[l] + k_z[l+1]
     m = k_z[l] - k_z[l+1]
-    rp = cmath.exp(-_sq(m) * s2h[l])
-    rm = cmath.exp(-_sq(p) * s2h[l])
+    rp = cmath.exp(-np.square(m) * s2h[l])
+    rm = cmath.exp(-np.square(p) * s2h[l])
     o = 2 * k_z[l]
     return p*rp/o, m*rm/o
-
-
-@jit
-def _sq(input):
-    return input*input
-
 
 @jit
 def _reflec_and_trans_inner(k2n2, k2, theta, thick, s2h):
     # wavevectors in the different layers
-    k2_x = k2 * _sq(math.cos(theta))  # k_x is conserved due to snell's law
+    k2_x = k2 * np.square(math.cos(theta))  # k_x is conserved due to snell's law
     k_z = -np.sqrt(k2n2 - k2_x)  # k_z is different for each layer.
     N = len(thick)  # number of layers
 
@@ -200,7 +195,7 @@ def reflec_and_trans_parallel(n, lam, thetas, thick, rough):
 @jit
 def _fields_inner(k2n2, k2, theta, thick, s2h, mm12, mm22, rs, ts, kt, N):
     # wavevectors in the different layers
-    k2_x = k2 * _sq(math.cos(theta))  # k_x is conserved due to snell's law
+    k2_x = k2 * np.square(math.cos(theta))  # k_x is conserved due to snell's law
     k_z = -np.sqrt(k2n2 - k2_x)  # k_z is different for each layer.
 
     pS, mS = _p_m(k_z, N, s2h)
@@ -253,9 +248,9 @@ def fields(n, lam, thetas, thick, rough):
     N = len(thick)
     T = len(thetas)
 
-    k2 = _sq(2 * math.pi / lam)  # k is conserved
-    k2n2 = k2 * _sq(n)
-    s2h = _sq(rough) / 2
+    k2 = np.square(2 * math.pi / lam)  # k is conserved
+    k2n2 = k2 * np.square(n)
+    s2h = np.square(rough) / 2
 
     # preallocate temporary arrays
     mm12 = np.empty(N + 1, dtype=np.complex128)
@@ -289,9 +284,9 @@ def fields_parallel(n, lam, thetas, thick, rough):
     N = len(thick)
     T = len(thetas)
 
-    k2 = _sq(2 * math.pi / lam)  # k is conserved
-    k2n2 = k2 * _sq(n)
-    s2h = _sq(rough) / 2
+    k2 = np.square(2 * math.pi / lam)  # k is conserved
+    k2n2 = k2 * np.square(n)
+    s2h = np.square(rough) / 2
 
     # preallocate whole result arrays
     rs = np.empty((T, N+2), dtype=np.complex128)
@@ -590,21 +585,16 @@ def prepared_fields_at_positions(evaluation_positions, rs, ts, k_z, Z):
     return pos_rs, pos_ts
 
 
+def _simple_test():
+    n_layers = 1001
+    n = np.array([1] + [1-1e-5+1e-6j, 1-2e-5+2e-6j]*int((n_layers-1)/2))
+    thick = np.array([.1]*(n_layers-2))
+    rough = np.array([.02]*(n_layers-1))
+    wl = 0.15
+    ang_deg = np.linspace(0.1, 2., 10001)
+    ang = np.deg2rad(ang_deg)
+    r, t = reflec_and_trans(n, wl, ang, thick, rough)
+
+
 if __name__ == '__main__':
-    _n_layers = 1001
-    _n = np.array([1] + [1-1e-5+1e-6j, 1-2e-5+2e-6j]*int((_n_layers-1)/2))
-    _thick = np.array([.1]*(_n_layers-2))
-    _rough = np.array([.02]*(_n_layers-1))
-    _wl = 0.15
-    _ang_deg = np.linspace(0.1, 2., 10001)
-    _ang = np.deg2rad(_ang_deg)
-    #print('ang_deg')
-    #for _i in _ang_deg:
-    #    print(_i)
-    _r, _t = reflec_and_trans(_n, _wl, _ang, _thick, _rough)
-    #_f = fields(_n, _wl, _ang, _thick, _rough)
-    #_ar = np.abs(_r)**2
-    #_at = np.abs(_t)**2
-    #print('# ang_deg abs(r)**2 abs(t)**2 r.real r.imag t.real t.imag')
-    #for _a, _iar, _iat, _ir, _it in zip(_ang_deg, _ar, _at, _r, _t):
-    #    print('{} {} {} {} {} {} {}'.format(_a, _iar, _iat, _ir.real, _ir.imag, _it.real, _it.imag))
+    _simple_test()
