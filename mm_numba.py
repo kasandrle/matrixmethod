@@ -601,7 +601,8 @@ if __name__ == '__main__':
     #print('ang_deg')
     #for _i in _ang_deg:
     #    print(_i)
-    _f = fields(_n, _wl, _ang, _thick, _rough)
+    _r, _t = reflec_and_trans(_n, _wl, _ang, _thick, _rough)
+    #_f = fields(_n, _wl, _ang, _thick, _rough)
     #_ar = np.abs(_r)**2
     #_at = np.abs(_t)**2
     #print('# ang_deg abs(r)**2 abs(t)**2 r.real r.imag t.real t.imag')

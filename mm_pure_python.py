@@ -131,17 +131,15 @@ def reflec_and_trans(n, lam, thetas, thick, rough):
 
 
 if __name__ == '__main__':
-    n_layers = 101
-    n = np.array([1] + [1-1e-5+1e-6j, 1-2e-5+2e-6j]*((n_layers-1)//2))
-    thick = np.array([.1]*(n_layers-2))
-    rough = np.array([.02]*(n_layers-1))
-    wl = 0.15
-    ang_deg = np.linspace(0.1, 2., 1001)
-    ang = np.deg2rad(ang_deg)
-    r, t = reflec_and_trans(n, wl, ang, thick, rough)
-    print('r')
-    for i in r:
-        print(abs(i**2))
-    print('t')
-    for i in t:
-        print(abs(i**2))
+    _n_layers = 1001
+    _n = np.array([1] + [1-1e-5+1e-6j, 1-2e-5+2e-6j]*int((_n_layers-1)/2))
+    _thick = np.array([.1]*(_n_layers-2))
+    _rough = np.array([.02]*(_n_layers-1))
+    _wl = 0.15
+    _ang_deg = np.linspace(0.1, 2., 10001)
+    _ang = np.deg2rad(_ang_deg)
+    #print('ang_deg')
+    #for _i in _ang_deg:
+    #    print(_i)
+    _r, _t = reflec_and_trans(_n, _wl, _ang, _thick, _rough)
+
