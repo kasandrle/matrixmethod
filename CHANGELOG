@@ -1,2 +1,5 @@
+Version 2019-12-19
+Unified functions for p- and s-polarization, now taking a parameter for the polarization.
+
 Version 2019-08-22
 Added functions for p polarization. Thanks to Anna Andrle.
