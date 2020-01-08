@@ -144,7 +144,7 @@ def _reflec_and_trans_inner(k2, n2, k2n2, theta, thick, s2h, N, p_m):
         # transition through layer j
         vj = cmath.exp(1j * k_z[j+1] * thick[j])
         # transition through interface between j-1 an j
-        pj, mj = p_m(k_z, n2, l, s2h)
+        pj, mj = p_m(k_z, n2, j, s2h)
         m11 = pj / vj
         m12 = mj * vj
         m21 = mj / vj
