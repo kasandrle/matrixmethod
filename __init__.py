@@ -77,4 +77,4 @@ and the transmission coefficient is:
 """
 
 from .mm_numba import reflec_and_trans, reflec_and_trans_parallel, fields, fields_parallel, fields_at_positions, \
-    fields_at_positions_parallel, prepare_fields, prepared_fields_at_positions
+    fields_at_positions_parallel
