@@ -110,8 +110,8 @@ def _p_m_s_pol(k_z: Array, n2: Array, j: int, s2h: Array) -> Tuple[complex, comp
     """
     p = k_z[j] + k_z[j + 1]
     m = k_z[j] - k_z[j + 1]
-    rp = cmath.exp(-np.square(m) * s2h[j] / 2)
-    rm = cmath.exp(-np.square(p) * s2h[j] / 2)
+    rp = cmath.exp(-np.square(m) * s2h[j])
+    rm = cmath.exp(-np.square(p) * s2h[j])
     o = 2 * k_z[j]
     return p*rp/o, m*rm/o
 
