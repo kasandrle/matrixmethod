@@ -1,11 +1,10 @@
 [project]
 name = "matrixmethod"
-version = "0.1.1"
+version = "0.1.2"
 requires-python = ">=3.12"
 dependencies = [
     "numba>=0.62.0",
-    "numpy>=2.3.3",
-    "typing>=3.10.0.0",
+    "numpy>=2.3.3"
 ]
 authors = [
     {name = "Mika Pflueger"},
