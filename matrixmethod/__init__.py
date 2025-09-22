@@ -1,4 +1,4 @@
-"""Matrix method algorithm to calculate X-ray reflectivity and transmittivity and electric fields for a stack of
+r"""Matrix method algorithm to calculate X-ray reflectivity and transmittivity and electric fields for a stack of
 homogeneous layers.
 
 
