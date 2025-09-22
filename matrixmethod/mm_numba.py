@@ -81,15 +81,21 @@ import enum
 
 try:
     import numba
+
     jit = numba.jit(nopython=True, cache=False, fastmath=True, nogil=True)
-    pjit = numba.jit(nopython=True, cache=False, fastmath=True, nogil=True, parallel=True)
+    pjit = numba.jit(
+        nopython=True, cache=False, fastmath=True, nogil=True, parallel=True
+    )
     prange = numba.prange
 except ImportError:
     jit = lambda x: x
     pjit = lambda x: x
     prange = range
     import warnings
-    warnings.warn('numba could not be imported, algorithms will run very slow. Install numba for better performance.')
+
+    warnings.warn(
+        "numba could not be imported, algorithms will run very slow. Install numba for better performance."
+    )
 
 
 # type alias
@@ -113,7 +119,7 @@ def _p_m_s_pol(k_z: Array, n2: Array, j: int, s2h: Array) -> Tuple[complex, comp
     rp = cmath.exp(-np.square(m) * s2h[j])
     rm = cmath.exp(-np.square(p) * s2h[j])
     o = 2 * k_z[j]
-    return p*rp/o, m*rm/o
+    return p * rp / o, m * rm / o
 
 
 @jit
@@ -130,11 +136,13 @@ def _p_m_p_pol(k_z: Array, n2: Array, j: int, s2h: Array) -> Tuple[complex, comp
     rp = cmath.exp(-np.square(k_z[j] - k_z[j + 1]) * s2h[j])
     rm = cmath.exp(-np.square(k_z[j] + k_z[j + 1]) * s2h[j])
     o = 2 * n2lpkz
-    return p*rp/o, m*rm/o
+    return p * rp / o, m * rm / o
 
 
 @jit
-def _p_m(k_z: Array, n2: Array, j: int, s2h: Array, pol: Polarization) -> Tuple[complex, complex]:
+def _p_m(
+    k_z: Array, n2: Array, j: int, s2h: Array, pol: Polarization
+) -> Tuple[complex, complex]:
     if pol:  # pol=1 is s
         return _p_m_s_pol(k_z=k_z, n2=n2, j=j, s2h=s2h)
     else:
@@ -142,8 +150,16 @@ def _p_m(k_z: Array, n2: Array, j: int, s2h: Array, pol: Polarization) -> Tuple[
 
 
 @jit
-def _reflec_and_trans_inner(k2: float, n2: Array, k2n2: Array, theta: float,
-                            thick: Array, s2h: Array, N: int, p_m) -> Tuple[complex, complex]:
+def _reflec_and_trans_inner(
+    k2: float,
+    n2: Array,
+    k2n2: Array,
+    theta: float,
+    thick: Array,
+    s2h: Array,
+    N: int,
+    p_m,
+) -> Tuple[complex, complex]:
     # wavevectors in the different layers
     k2_x = k2 * np.square(math.cos(theta))  # k_x is conserved due to snell's law
     k_z = -np.sqrt(k2n2 - k2_x)  # k_z is different for each layer.
@@ -155,7 +171,7 @@ def _reflec_and_trans_inner(k2: float, n2: Array, k2n2: Array, theta: float,
     for l in range(N):
         j = N - l - 1  # j = N-1 .. 0
         # transition through layer j
-        vj = cmath.exp(1j * k_z[j+1] * thick[j])
+        vj = cmath.exp(1j * k_z[j + 1] * thick[j])
         # transition through interface between j-1 an j
         pj, mj = p_m(k_z=k_z, n2=n2, j=j, s2h=s2h)
         m11 = pj / vj
@@ -163,7 +179,7 @@ def _reflec_and_trans_inner(k2: float, n2: Array, k2n2: Array, theta: float,
         m21 = mj / vj
         m22 = pj * vj
 
-        mm12, mm22 = m11*mm12 + m12*mm22, m21*mm12 + m22*mm22
+        mm12, mm22 = m11 * mm12 + m12 * mm22, m21 * mm12 + m22 * mm22
 
     # reflection coefficient
     r = mm12 / mm22
@@ -175,13 +191,16 @@ def _reflec_and_trans_inner(k2: float, n2: Array, k2n2: Array, theta: float,
 
 
 @jit
-def _precompute(n: Array, lam: float, thetas: Array, thick: Array, rough: Array,
-                pol: Polarization) -> Tuple[float, Array, Array, Array, int, int]:
+def _precompute(
+    n: Array, lam: float, thetas: Array, thick: Array, rough: Array, pol: Polarization
+) -> Tuple[float, Array, Array, Array, int, int]:
     N = len(thick)
     T = len(thetas)
 
     if not len(n) == len(rough) + 1 == N + 2:
-        raise ValueError('array lengths do not match: len(n) == len(rough) + 1 == len(thick) + 2 does not hold.')
+        raise ValueError(
+            "array lengths do not match: len(n) == len(rough) + 1 == len(thick) + 2 does not hold."
+        )
 
     k2 = np.square(2 * math.pi / lam)  # k is conserved
     n2 = np.square(n)
@@ -189,25 +208,39 @@ def _precompute(n: Array, lam: float, thetas: Array, thick: Array, rough: Array,
     s2h = np.square(rough) / 2
 
     if pol != 1 and pol != 0:
-        raise ValueError('pol has to be either 1 for s-polarization or 0 for p-polarization.')
+        raise ValueError(
+            "pol has to be either 1 for s-polarization or 0 for p-polarization."
+        )
     return k2, n2, k2n2, s2h, N, T
 
 
 @jit
-def _reflec_and_trans(thetas: Array, thick: Array, n2: Array, k2: float, k2n2: Array,
-                      s2h: Array, N: int, T: int, p_m) -> Tuple[Array, Array]:
+def _reflec_and_trans(
+    thetas: Array,
+    thick: Array,
+    n2: Array,
+    k2: float,
+    k2n2: Array,
+    s2h: Array,
+    N: int,
+    T: int,
+    p_m,
+) -> Tuple[Array, Array]:
     rs = np.empty(T, np.complex128)
     ts = np.empty(T, np.complex128)
     for i in range(T):
-        r, t = _reflec_and_trans_inner(k2=k2, n2=n2, k2n2=k2n2, theta=thetas[i], thick=thick, s2h=s2h, N=N, p_m=p_m)
+        r, t = _reflec_and_trans_inner(
+            k2=k2, n2=n2, k2n2=k2n2, theta=thetas[i], thick=thick, s2h=s2h, N=N, p_m=p_m
+        )
         rs[i] = r
         ts[i] = t
 
     return rs, ts
 
 
-def reflec_and_trans(n: Array, lam: float, thetas: Array, thick: Array, rough: Array,
-                     pol=Polarization.S) -> Tuple[Array, Array]:
+def reflec_and_trans(
+    n: Array, lam: float, thetas: Array, thick: Array, rough: Array, pol=Polarization.S
+) -> Tuple[Array, Array]:
     """Calculate the reflection coefficient and the transmission coefficient for a stack of N layers, with the incident
     wave coming from layer 0, which is reflected into layer 0 and transmitted into layer N.
     Note that N=len(n) is the total number of layers, including the substrate. That is the only point where the notation
@@ -220,29 +253,63 @@ def reflec_and_trans(n: Array, lam: float, thetas: Array, thick: Array, rough: A
     :param pol: polarization (either 1 for s-polarization or 0 for p-polarization)
     :return: (reflec, trans)
     """
-    k2, n2, k2n2, s2h, N, T = _precompute(n=n, lam=lam, thetas=thetas, thick=thick, rough=rough, pol=pol)
+    k2, n2, k2n2, s2h, N, T = _precompute(
+        n=n, lam=lam, thetas=thetas, thick=thick, rough=rough, pol=pol
+    )
 
     if pol:  # pol=1 is s
-        return _reflec_and_trans(thetas=thetas, thick=thick, n2=n2, k2=k2, k2n2=k2n2, s2h=s2h, N=N, T=T, p_m=_p_m_s_pol)
+        return _reflec_and_trans(
+            thetas=thetas,
+            thick=thick,
+            n2=n2,
+            k2=k2,
+            k2n2=k2n2,
+            s2h=s2h,
+            N=N,
+            T=T,
+            p_m=_p_m_s_pol,
+        )
     else:
-        return _reflec_and_trans(thetas=thetas, thick=thick, n2=n2, k2=k2, k2n2=k2n2, s2h=s2h, N=N, T=T, p_m=_p_m_p_pol)
+        return _reflec_and_trans(
+            thetas=thetas,
+            thick=thick,
+            n2=n2,
+            k2=k2,
+            k2n2=k2n2,
+            s2h=s2h,
+            N=N,
+            T=T,
+            p_m=_p_m_p_pol,
+        )
 
 
 @pjit
-def _reflec_and_trans_parallel(thetas: Array, thick: Array, n2: Array, k2: float, k2n2: Array,
-                               s2h: Array, N: int, T: int, p_m) -> Tuple[Array, Array]:
+def _reflec_and_trans_parallel(
+    thetas: Array,
+    thick: Array,
+    n2: Array,
+    k2: float,
+    k2n2: Array,
+    s2h: Array,
+    N: int,
+    T: int,
+    p_m,
+) -> Tuple[Array, Array]:
     rs = np.empty(T, np.complex128)
     ts = np.empty(T, np.complex128)
     for i in prange(T):
-        r, t = _reflec_and_trans_inner(k2=k2, n2=n2, k2n2=k2n2, theta=thetas[i], thick=thick, s2h=s2h, N=N, p_m=p_m)
+        r, t = _reflec_and_trans_inner(
+            k2=k2, n2=n2, k2n2=k2n2, theta=thetas[i], thick=thick, s2h=s2h, N=N, p_m=p_m
+        )
         rs[i] = r
         ts[i] = t
 
     return rs, ts
 
 
-def reflec_and_trans_parallel(n: Array, lam: float, thetas: Array, thick: Array, rough: Array,
-                              pol=Polarization.S) -> Tuple[Array, Array]:
+def reflec_and_trans_parallel(
+    n: Array, lam: float, thetas: Array, thick: Array, rough: Array, pol=Polarization.S
+) -> Tuple[Array, Array]:
     """Calculate the reflection coefficient and the transmission coefficient for a stack of N layers, with the incident
     wave coming from layer 0, which is reflected into layer 0 and transmitted into layer N.
 
@@ -263,17 +330,47 @@ def reflec_and_trans_parallel(n: Array, lam: float, thetas: Array, thick: Array,
     k2, n2, k2n2, s2h, N, T = _precompute(n, lam, thetas, thick, rough, pol)
 
     if pol:  # pol=1 is s
-        return _reflec_and_trans_parallel(thetas=thetas, thick=thick, n2=n2, k2=k2, k2n2=k2n2, s2h=s2h, N=N, T=T,
-                                          p_m=_p_m_s_pol)
+        return _reflec_and_trans_parallel(
+            thetas=thetas,
+            thick=thick,
+            n2=n2,
+            k2=k2,
+            k2n2=k2n2,
+            s2h=s2h,
+            N=N,
+            T=T,
+            p_m=_p_m_s_pol,
+        )
     else:
-        return _reflec_and_trans_parallel(thetas=thetas, thick=thick, n2=n2, k2=k2, k2n2=k2n2, s2h=s2h, N=N, T=T,
-                                          p_m=_p_m_p_pol)
+        return _reflec_and_trans_parallel(
+            thetas=thetas,
+            thick=thick,
+            n2=n2,
+            k2=k2,
+            k2n2=k2n2,
+            s2h=s2h,
+            N=N,
+            T=T,
+            p_m=_p_m_p_pol,
+        )
 
 
 @jit
-def _fields_inner(n2: Array, k2: float, k2n2: Array, theta: float, thick: Array, s2h: Array,
-                  mm12: Array, mm22: Array, rs: Array, ts: Array, kt: int, N: int,
-                  pol: Polarization) -> None:
+def _fields_inner(
+    n2: Array,
+    k2: float,
+    k2n2: Array,
+    theta: float,
+    thick: Array,
+    s2h: Array,
+    mm12: Array,
+    mm22: Array,
+    rs: Array,
+    ts: Array,
+    kt: int,
+    N: int,
+    pol: Polarization,
+) -> None:
     # wavevectors in the different layers
     k2_x = k2 * np.square(math.cos(theta))  # k_x is conserved due to snell's law
     k_z = -np.sqrt(k2n2 - k2_x)  # k_z is different for each layer.
@@ -286,7 +383,7 @@ def _fields_inner(n2: Array, k2: float, k2n2: Array, theta: float, thick: Array,
     for l in range(N):
         j = N - l - 1  # j = N-1 .. 0
         # transition through layer j
-        vj = cmath.exp(1j * k_z[j+1] * thick[j])
+        vj = cmath.exp(1j * k_z[j + 1] * thick[j])
         # transition through interface between j-1 an j
         pj, mj = _p_m(k_z, n2, j, s2h, pol)
         m11 = pj / vj
@@ -294,8 +391,8 @@ def _fields_inner(n2: Array, k2: float, k2n2: Array, theta: float, thick: Array,
         m21 = mj / vj
         m22 = pj * vj
 
-        mm12[j] = m11*mm12[j+1] + m12*mm22[j+1]
-        mm22[j] = m21*mm12[j+1] + m22*mm22[j+1]
+        mm12[j] = m11 * mm12[j + 1] + m12 * mm22[j + 1]
+        mm22[j] = m21 * mm12[j + 1] + m22 * mm22[j + 1]
 
     # reflection coefficient
     r = mm12[0] / mm22[0]
@@ -305,16 +402,22 @@ def _fields_inner(n2: Array, k2: float, k2n2: Array, theta: float, thick: Array,
 
     ts[kt][0] = 1  # in the vacuum layer
     rs[kt][0] = r  # in the vacuum layer
-    for j in range(1, N+1):  # j = 1 .. N
+    for j in range(1, N + 1):  # j = 1 .. N
         ts[kt][j] = mm22[j] * t
         rs[kt][j] = mm12[j] * t
-    ts[kt][N+1] = t  # in the substrate
-    rs[kt][N+1] = 0
+    ts[kt][N + 1] = t  # in the substrate
+    rs[kt][N + 1] = 0
 
 
 @jit
-def fields(n: Array, lam: float, thetas: Array, thick: Array, rough: Array,
-           pol: Polarization = 1) -> Tuple[Array, Array]:
+def fields(
+    n: Array,
+    lam: float,
+    thetas: Array,
+    thick: Array,
+    rough: Array,
+    pol: Polarization = 1,
+) -> Tuple[Array, Array]:
     """Calculate the reflection coefficient and the transmission coefficient for a stack of N layers, with the incident
     wave coming from layer 0, which is reflected into layer 0 and transmitted into layer N.
     Note that N=len(n) is the total number of layers, including the substrate. That is the only point where the notation
@@ -327,24 +430,45 @@ def fields(n: Array, lam: float, thetas: Array, thick: Array, rough: Array,
     :param pol: polarization (either 1 for s-polarization or 0 for p-polarization)
     :return: (reflec, trans)
     """
-    k2, n2, k2n2, s2h, N, T = _precompute(n=n, lam=lam, thetas=thetas, thick=thick, rough=rough, pol=pol)
+    k2, n2, k2n2, s2h, N, T = _precompute(
+        n=n, lam=lam, thetas=thetas, thick=thick, rough=rough, pol=pol
+    )
 
     # preallocate temporary arrays
     mm12 = np.empty(N + 1, dtype=np.complex128)
     mm22 = np.empty(N + 1, dtype=np.complex128)
     # preallocate whole result arrays
-    rs = np.empty((T, N+2), dtype=np.complex128)
-    ts = np.empty((T, N+2), dtype=np.complex128)
+    rs = np.empty((T, N + 2), dtype=np.complex128)
+    ts = np.empty((T, N + 2), dtype=np.complex128)
 
     for kt, theta in enumerate(thetas):
-        _fields_inner(n2=n2, k2=k2, k2n2=k2n2, theta=theta, thick=thick, s2h=s2h, mm12=mm12, mm22=mm22, rs=rs, ts=ts,
-                      kt=kt, N=N, pol=pol)
+        _fields_inner(
+            n2=n2,
+            k2=k2,
+            k2n2=k2n2,
+            theta=theta,
+            thick=thick,
+            s2h=s2h,
+            mm12=mm12,
+            mm22=mm22,
+            rs=rs,
+            ts=ts,
+            kt=kt,
+            N=N,
+            pol=pol,
+        )
     return rs, ts
 
 
 @pjit
-def fields_parallel(n: Array, lam: float, thetas: Array, thick: Array, rough: Array,
-                    pol: Polarization = 1) -> Tuple[Array, Array]:
+def fields_parallel(
+    n: Array,
+    lam: float,
+    thetas: Array,
+    thick: Array,
+    rough: Array,
+    pol: Polarization = 1,
+) -> Tuple[Array, Array]:
     """Calculate the reflection coefficient and the transmission coefficient for a stack of N layers, with the incident
     wave coming from layer 0, which is reflected into layer 0 and transmitted into layer N.
 
@@ -361,24 +485,50 @@ def fields_parallel(n: Array, lam: float, thetas: Array, thick: Array, rough: Ar
     :param pol: polarization (either 1 for s-polarization or 0 for p-polarization)
     :return: (reflec, trans)
     """
-    k2, n2, k2n2, s2h, N, T = _precompute(n=n, lam=lam, thetas=thetas, thick=thick, rough=rough, pol=pol)
+    k2, n2, k2n2, s2h, N, T = _precompute(
+        n=n, lam=lam, thetas=thetas, thick=thick, rough=rough, pol=pol
+    )
 
     # preallocate whole result arrays
-    rs = np.empty((T, N+2), dtype=np.complex128)
-    ts = np.empty((T, N+2), dtype=np.complex128)
+    rs = np.empty((T, N + 2), dtype=np.complex128)
+    ts = np.empty((T, N + 2), dtype=np.complex128)
 
     for kt in prange(T):
         # preallocate temporary arrays
         mm12 = np.empty(N + 1, dtype=np.complex128)
         mm22 = np.empty(N + 1, dtype=np.complex128)
-        _fields_inner(n2=n2, k2=k2, k2n2=k2n2, theta=thetas[kt], thick=thick, s2h=s2h, mm12=mm12, mm22=mm22,
-                      rs=rs, ts=ts, kt=kt, N=N, pol=pol)
+        _fields_inner(
+            n2=n2,
+            k2=k2,
+            k2n2=k2n2,
+            theta=thetas[kt],
+            thick=thick,
+            s2h=s2h,
+            mm12=mm12,
+            mm22=mm22,
+            rs=rs,
+            ts=ts,
+            kt=kt,
+            N=N,
+            pol=pol,
+        )
     return rs, ts
 
 
 @jit
-def _fields_positions_inner(thick: Array, n2: Array, s2h: Array, kt: int, rs: Array, ts: Array,
-                            mm12: Array, mm22: Array, N: int, k_z: Array, pol: Polarization) -> None:
+def _fields_positions_inner(
+    thick: Array,
+    n2: Array,
+    s2h: Array,
+    kt: int,
+    rs: Array,
+    ts: Array,
+    mm12: Array,
+    mm22: Array,
+    N: int,
+    k_z: Array,
+    pol: Polarization,
+) -> None:
     pS, mS = _p_m(k_z=k_z[kt], n2=n2, j=N, s2h=s2h, pol=pol)
     # entries of the transition matrix MM
     # mm11, mm12, mm21, mm22
@@ -388,7 +538,7 @@ def _fields_positions_inner(thick: Array, n2: Array, s2h: Array, kt: int, rs: Ar
     for l in range(N):
         j = N - l - 1  # j = N-1 .. 0
         # transition through layer j
-        vj = cmath.exp(1j * k_z[kt][j+1] * thick[j])
+        vj = cmath.exp(1j * k_z[kt][j + 1] * thick[j])
         # transition through interface between j-1 an j
         pj, mj = _p_m(k_z[kt], n2, j, s2h, pol)
         m11 = pj / vj
@@ -396,8 +546,8 @@ def _fields_positions_inner(thick: Array, n2: Array, s2h: Array, kt: int, rs: Ar
         m21 = mj / vj
         m22 = pj * vj
 
-        mm12[j] = m11*mm12[j+1] + m12*mm22[j+1]
-        mm22[j] = m21*mm12[j+1] + m22*mm22[j+1]
+        mm12[j] = m11 * mm12[j + 1] + m12 * mm22[j + 1]
+        mm22[j] = m21 * mm12[j + 1] + m22 * mm22[j + 1]
 
     # reflection coefficient
     r = mm12[0] / mm22[0]
@@ -411,13 +561,22 @@ def _fields_positions_inner(thick: Array, n2: Array, s2h: Array, kt: int, rs: Ar
         j = l + 1  # j = 1 .. N
         ts[kt][j] = mm22[j] * t
         rs[kt][j] = mm12[j] * t
-    ts[kt][N+1] = t  # in the substrate
-    rs[kt][N+1] = 0
+    ts[kt][N + 1] = t  # in the substrate
+    rs[kt][N + 1] = 0
 
 
 @jit
-def _fields_positions_inner_positions(kp: int, pos: int, Z: Array, pos_rs: Array, pos_ts: Array, k_z: Array,
-                                      ts: Array, rs: Array, T: int):
+def _fields_positions_inner_positions(
+    kp: int,
+    pos: int,
+    Z: Array,
+    pos_rs: Array,
+    pos_ts: Array,
+    k_z: Array,
+    ts: Array,
+    rs: Array,
+    T: int,
+):
     # MM_j * (0, t) is the field at the interface between the layer j and the layer j+1.
     # thus, if pos is within layer j, we need to use the translation matrix
     # TT = exp(-ik_{z,j} h), 0 \\ 0, exp(ik_{z,j} h)
@@ -431,14 +590,18 @@ def _fields_positions_inner_positions(kp: int, pos: int, Z: Array, pos_rs: Array
     else:  # within the substrate
         # need to special-case the substrate since we have to propagate "down" from the substrate interface
         # all other cases are propagated "up" from their respective interfaces
-        dist_j = 1j * (pos - Z[-1])  # common for all thetas: distance from interface to evaluation_position
+        dist_j = 1j * (
+            pos - Z[-1]
+        )  # common for all thetas: distance from interface to evaluation_position
         for ko in range(T):  # iterate through all thetas
-            pos_rs[ko][kp] = 0.
+            pos_rs[ko][kp] = 0.0
             pos_ts[ko][kp] = ts[ko][-1] * cmath.exp(k_z[ko][-1] * dist_j)
         return
 
     # now zj = Z[j] is the layer in which pos lies
-    dist_j = 1j * (pos - zj)  # common for all thetas: distance from interface to evaluation_position
+    dist_j = 1j * (
+        pos - zj
+    )  # common for all thetas: distance from interface to evaluation_position
     for ko in range(T):
         # now propagate the fields through the layer
         vj = cmath.exp(k_z[ko][j] * dist_j)
@@ -450,8 +613,15 @@ def _fields_positions_inner_positions(kp: int, pos: int, Z: Array, pos_rs: Array
 
 
 @jit
-def fields_at_positions(n: Array, lam: float, thetas: Array, thick: Array, rough: Array,
-                        evaluation_positions: Array, pol: Polarization = 1) -> Tuple[Array, Array, Array, Array]:
+def fields_at_positions(
+    n: Array,
+    lam: float,
+    thetas: Array,
+    thick: Array,
+    rough: Array,
+    evaluation_positions: Array,
+    pol: Polarization = 1,
+) -> Tuple[Array, Array, Array, Array]:
     """Calculate the electric field intensities in a stack of N layers, with the incident
     wave coming from layer 0, which is reflected into layer 0 and transmitted into layer N.
     Note that N=len(n) is the total number of layers, including the substrate. That is the only point where the notation
@@ -467,21 +637,27 @@ def fields_at_positions(n: Array, lam: float, thetas: Array, thick: Array, rough
     :return: (reflec, trans, pos_reflec, pos_trans)
     """
     P = len(evaluation_positions)
-    k2, n2, k2n2, s2h, N, T = _precompute(n=n, lam=lam, thetas=thetas, thick=thick, rough=rough, pol=pol)
-    k2_x = k2 * np.square(np.cos(thetas))  # k_x is conserved due to snell's law, i.e. only dependent on theta
+    k2, n2, k2n2, s2h, N, T = _precompute(
+        n=n, lam=lam, thetas=thetas, thick=thick, rough=rough, pol=pol
+    )
+    k2_x = k2 * np.square(
+        np.cos(thetas)
+    )  # k_x is conserved due to snell's law, i.e. only dependent on theta
 
     k_z = np.empty((T, N + 2), dtype=np.complex128)
 
     for kt in range(T):
         for kl in range(N + 2):
-            k_z[kt][kl] = -np.sqrt(k2n2[kl] - k2_x[kt])  # k_z is different for each layer.
+            k_z[kt][kl] = -np.sqrt(
+                k2n2[kl] - k2_x[kt]
+            )  # k_z is different for each layer.
 
     # calculate absolute interface positions from thicknesses
     Z = np.empty(N + 1, dtype=np.float64)
-    Z[0] = 0.
+    Z[0] = 0.0
     cs = -np.cumsum(thick)
     for i in range(0, N):
-        Z[i+1] = cs[i]
+        Z[i + 1] = cs[i]
 
     # preallocate temporary arrays
     mm12 = np.empty(N + 1, dtype=np.complex128)
@@ -505,8 +681,14 @@ def fields_at_positions(n: Array, lam: float, thetas: Array, thick: Array, rough
 
 @pjit
 def fields_at_positions_parallel(
-        n: Array, lam: float, thetas: Array, thick: Array, rough: Array,
-        evaluation_positions: Array, pol: Polarization = 1) -> Tuple[Array, Array, Array, Array]:
+    n: Array,
+    lam: float,
+    thetas: Array,
+    thick: Array,
+    rough: Array,
+    evaluation_positions: Array,
+    pol: Polarization = 1,
+) -> Tuple[Array, Array, Array, Array]:
     """Calculate the electric field intensities in a stack of N layers, with the incident
     wave coming from layer 0, which is reflected into layer 0 and transmitted into layer N.
 
@@ -528,17 +710,21 @@ def fields_at_positions_parallel(
     """
     P = len(evaluation_positions)
     k2, n2, k2n2, s2h, N, T = _precompute(n, lam, thetas, thick, rough, pol)
-    k2_x = k2 * np.square(np.cos(thetas))  # k_x is conserved due to snell's law, i.e. only dependent on theta
+    k2_x = k2 * np.square(
+        np.cos(thetas)
+    )  # k_x is conserved due to snell's law, i.e. only dependent on theta
 
     k_z = np.empty((T, N + 2), dtype=np.complex128)
 
     for kt in range(T):
         for kl in range(N + 2):
-            k_z[kt][kl] = -np.sqrt(k2n2[kl] - k2_x[kt])  # k_z is different for each layer.
+            k_z[kt][kl] = -np.sqrt(
+                k2n2[kl] - k2_x[kt]
+            )  # k_z is different for each layer.
 
     # calculate absolute interface positions from thicknesses
     Z = np.empty(N + 1, dtype=np.float64)
-    Z[0] = 0.
+    Z[0] = 0.0
     cs = -np.cumsum(thick)
     for i in range(0, N):
         Z[i + 1] = cs[i]
@@ -552,26 +738,46 @@ def fields_at_positions_parallel(
         # preallocate temporary arrays
         mm12 = np.empty(N + 1, dtype=np.complex128)
         mm22 = np.empty(N + 1, dtype=np.complex128)
-        _fields_positions_inner(thick=thick, n2=n2, s2h=s2h, kt=kt, rs=rs, ts=ts, mm12=mm12, mm22=mm22,
-                                N=N, k_z=k_z, pol=pol)
+        _fields_positions_inner(
+            thick=thick,
+            n2=n2,
+            s2h=s2h,
+            kt=kt,
+            rs=rs,
+            ts=ts,
+            mm12=mm12,
+            mm22=mm22,
+            N=N,
+            k_z=k_z,
+            pol=pol,
+        )
 
     pos_rs = np.empty((T, P), dtype=np.complex128)
     pos_ts = np.empty((T, P), dtype=np.complex128)
     # now calculate the fields at the given evaluation positions
     for kp in prange(P):
-        _fields_positions_inner_positions(kp=kp, pos=evaluation_positions[kp], Z=Z, pos_rs=pos_rs, pos_ts=pos_ts,
-                                          k_z=k_z, ts=ts, rs=rs, T=T)
+        _fields_positions_inner_positions(
+            kp=kp,
+            pos=evaluation_positions[kp],
+            Z=Z,
+            pos_rs=pos_rs,
+            pos_ts=pos_ts,
+            k_z=k_z,
+            ts=ts,
+            rs=rs,
+            T=T,
+        )
 
     return rs, ts, pos_rs, pos_ts
 
 
 def _simple_test():
     n_layers = 1001
-    n = np.array([1] + [1-1e-5+1e-6j, 1-2e-5+2e-6j]*int((n_layers-1)/2))
-    thick = np.array([.1]*(n_layers-2))
-    rough = np.array([.02]*(n_layers-1))
+    n = np.array([1] + [1 - 1e-5 + 1e-6j, 1 - 2e-5 + 2e-6j] * int((n_layers - 1) / 2))
+    thick = np.array([0.1] * (n_layers - 2))
+    rough = np.array([0.02] * (n_layers - 1))
     wl = 0.15
-    ang_deg = np.linspace(0.1, 2., 10001)
+    ang_deg = np.linspace(0.1, 2.0, 10001)
     ang = np.deg2rad(ang_deg)
     r, t = reflec_and_trans(n, wl, ang, thick, rough)
     rp, tp = reflec_and_trans_parallel(n, wl, ang, thick, rough)
@@ -584,13 +790,17 @@ def _simple_test():
     assert np.all(ts == tsp)
 
     evaluation_positions = np.linspace(-20, 0, 101)
-    rs, ts, pos_rs, pos_ts = fields_at_positions(n, wl, ang, thick, rough, evaluation_positions)
-    rsp, tsp, pos_rsp, pos_tsp = fields_at_positions_parallel(n, wl, ang, thick, rough, evaluation_positions)
+    rs, ts, pos_rs, pos_ts = fields_at_positions(
+        n, wl, ang, thick, rough, evaluation_positions
+    )
+    rsp, tsp, pos_rsp, pos_tsp = fields_at_positions_parallel(
+        n, wl, ang, thick, rough, evaluation_positions
+    )
     assert np.all(rs == rsp)
     assert np.all(ts == tsp)
     assert np.all(pos_rs == pos_rsp)
     assert np.all(pos_ts == pos_tsp)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     _simple_test()

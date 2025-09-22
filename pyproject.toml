@@ -1,14 +1,30 @@
 [project]
 name = "matrixmethod"
-version = "0.1.0"
+version = "0.1.1"
 requires-python = ">=3.12"
 dependencies = [
     "numba>=0.62.0",
     "numpy>=2.3.3",
     "typing>=3.10.0.0",
 ]
-authors = [{name = "Mika Pflueger"},{name = "Kas Andrle",email = "kandrle@lbl.gov"}]
+authors = [
+    {name = "Mika Pflueger"},
+    {name = "Kas Andrle",email = "kandrle@lbl.gov"}
+    ]
+description = "Calculating Refelctivity"
+readme = "README.md"
 
 [build-system]
 build-backend = "hatchling.build"
 requires = ["hatchling"]
+
+[tool.ruff]
+exclude = [
+  ".github",
+  ".git",
+  ".vscode",
+  "docs",
+  "src",
+]
+fix = true
+line-length = 88

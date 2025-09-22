@@ -97,16 +97,22 @@ def reflec_and_trans(n, lam, thetas, thick, rough):
         # roughness (debye-waller factors, see p 112 of Gibaud/Vignaud)
         # rp = exp(-(k_{z,j+1} - k_{z,j})**2 sigma_j**2/2)
         # rm = exp(-(k_{z,j+1} + k_{z,j})**2 sigma_j**2/2)
-        p = (k_z[:-1] + k_z[1:]) / (2 * k_z[:-1]) * np.exp(-(k_z[:-1] - k_z[1:])**2 * rough**2 / 2)
-        m = (k_z[:-1] - k_z[1:]) / (2 * k_z[:-1]) * np.exp(-(k_z[:-1] + k_z[1:])**2 * rough**2 / 2)
+        p = (
+            (k_z[:-1] + k_z[1:])
+            / (2 * k_z[:-1])
+            * np.exp(-((k_z[:-1] - k_z[1:]) ** 2) * rough**2 / 2)
+        )
+        m = (
+            (k_z[:-1] - k_z[1:])
+            / (2 * k_z[:-1])
+            * np.exp(-((k_z[:-1] + k_z[1:]) ** 2) * rough**2 / 2)
+        )
 
-        RR = [np.matrix([[p[i], m[i]],
-                         [m[i], p[i]]]) for i in range(len(p))]
+        RR = [np.matrix([[p[i], m[i]], [m[i], p[i]]]) for i in range(len(p))]
 
         # matrix elements of the translation matrices
         w = 1j * k_z[1:-1] * thick
-        TT = [np.matrix([[np.exp(-v), 0],
-                         [0, np.exp(v)]]) for v in w]
+        TT = [np.matrix([[np.exp(-v), 0], [0, np.exp(v)]]) for v in w]
 
         # the transfer matrix is obtained as
         # \RR_{0, 1} \prod_{j=1}^N-1 \TT_{j} \RR_{j, j+1}
@@ -130,16 +136,15 @@ def reflec_and_trans(n, lam, thetas, thick, rough):
     return rs, ts
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     _n_layers = 1001
-    _n = np.array([1] + [1-1e-5+1e-6j, 1-2e-5+2e-6j]*int((_n_layers-1)/2))
-    _thick = np.array([.1]*(_n_layers-2))
-    _rough = np.array([.02]*(_n_layers-1))
+    _n = np.array([1] + [1 - 1e-5 + 1e-6j, 1 - 2e-5 + 2e-6j] * int((_n_layers - 1) / 2))
+    _thick = np.array([0.1] * (_n_layers - 2))
+    _rough = np.array([0.02] * (_n_layers - 1))
     _wl = 0.15
-    _ang_deg = np.linspace(0.1, 2., 10001)
+    _ang_deg = np.linspace(0.1, 2.0, 10001)
     _ang = np.deg2rad(_ang_deg)
-    #print('ang_deg')
-    #for _i in _ang_deg:
+    # print('ang_deg')
+    # for _i in _ang_deg:
     #    print(_i)
     _r, _t = reflec_and_trans(_n, _wl, _ang, _thick, _rough)
-

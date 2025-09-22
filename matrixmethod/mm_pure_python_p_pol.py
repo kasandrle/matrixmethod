@@ -92,23 +92,28 @@ def reflec_and_trans(n, lam, thetas, thick, rough):
         n2 = np.square(n)
         k_z = -np.sqrt((k**2 * n2) - k_x**2)  # k_z is different for each layer.
 
-
         # matrix elements of the refraction matrices
         # p[j] is p_{j, j+1}
         # p_1{j, j+1} = k_{z, j} + k_{z, j+1} / (2 * k_{z, j})  for all j=0..N-1
         # roughness (debye-waller factors, see p 112 of Gibaud/Vignaud)
         # rp = exp(-(k_{z,j+1} - k_{z,j})**2 sigma_j**2/2)
         # rm = exp(-(k_{z,j+1} + k_{z,j})**2 sigma_j**2/2)
-        p = (n2[1:]*k_z[:-1] + n2[:-1]*k_z[1:]) / (2 * n2[1:]*k_z[:-1]) * np.exp(-(k_z[:-1] - k_z[1:])**2 * rough**2 / 2)
-        m = (n2[1:]*k_z[:-1] - n2[:-1]*k_z[1:]) / (2 * n2[1:]*k_z[:-1]) * np.exp(-(k_z[:-1] + k_z[1:])**2 * rough**2 / 2)
+        p = (
+            (n2[1:] * k_z[:-1] + n2[:-1] * k_z[1:])
+            / (2 * n2[1:] * k_z[:-1])
+            * np.exp(-((k_z[:-1] - k_z[1:]) ** 2) * rough**2 / 2)
+        )
+        m = (
+            (n2[1:] * k_z[:-1] - n2[:-1] * k_z[1:])
+            / (2 * n2[1:] * k_z[:-1])
+            * np.exp(-((k_z[:-1] + k_z[1:]) ** 2) * rough**2 / 2)
+        )
 
-        RR = [np.matrix([[p[i], m[i]],
-                         [m[i], p[i]]]) for i in range(len(p))]
+        RR = [np.matrix([[p[i], m[i]], [m[i], p[i]]]) for i in range(len(p))]
 
         # matrix elements of the translation matrices
         w = 1j * k_z[1:-1] * thick
-        TT = [np.matrix([[np.exp(-v), 0],
-                         [0, np.exp(v)]]) for v in w]
+        TT = [np.matrix([[np.exp(-v), 0], [0, np.exp(v)]]) for v in w]
 
         # the transfer matrix is obtained as
         # \RR_{0, 1} \prod_{j=1}^N-1 \TT_{j} \RR_{j, j+1}
@@ -132,18 +137,18 @@ def reflec_and_trans(n, lam, thetas, thick, rough):
     return rs, ts
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     n_layers = 101
-    n = np.array([1] + [1-1e-5+1e-6j, 1-2e-5+2e-6j]*((n_layers-1)//2))
-    thick = np.array([.1]*(n_layers-2))
-    rough = np.array([.02]*(n_layers-1))
+    n = np.array([1] + [1 - 1e-5 + 1e-6j, 1 - 2e-5 + 2e-6j] * ((n_layers - 1) // 2))
+    thick = np.array([0.1] * (n_layers - 2))
+    rough = np.array([0.02] * (n_layers - 1))
     wl = 0.15
-    ang_deg = np.linspace(0.1, 2., 1001)
+    ang_deg = np.linspace(0.1, 2.0, 1001)
     ang = np.deg2rad(ang_deg)
     r, t = reflec_and_trans(n, wl, ang, thick, rough)
-    print('r')
+    print("r")
     for i in r:
         print(abs(i**2))
-    print('t')
+    print("t")
     for i in t:
         print(abs(i**2))
